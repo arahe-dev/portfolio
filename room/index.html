@@ -794,6 +794,9 @@ const windowGroup = new THREE.Group(); scene.add(windowGroup);
   // glass
   const glass = new THREE.Mesh(new THREE.PlaneGeometry(zl-.06, yl-.06), new THREE.MeshBasicMaterial({ color:'#cfe6ff', transparent:true, opacity:.06, depthWrite:false }));
   glass.position.set(fx+.005, yc, zc); glass.rotation.y = Math.PI/2; fx_(glass); windowGroup.add(glass);
+  // invisible stand-in so clicking anywhere on the glass counts as the window
+  const hitPane = new THREE.Mesh(new THREE.PlaneGeometry(zl, yl), new THREE.MeshBasicMaterial({ visible:false, side:THREE.DoubleSide }));
+  hitPane.position.set(xl-.08, yc, zc); hitPane.rotation.y = Math.PI/2; windowGroup.add(hitPane);
   // curtain rod + finials
   rod(V3(xl+.12, W.y1+.22, W.z0-.55), V3(xl+.12, W.y1+.22, W.z1+.55), .012, .012, M.brass, windowGroup, 8);
   [W.z0-.57, W.z1+.57].forEach(z=>mesh(new THREE.SphereGeometry(.03,8,6), M.brass, { x:xl+.12, y:W.y1+.22, z }, windowGroup));
@@ -801,6 +804,7 @@ const windowGroup = new THREE.Group(); scene.add(windowGroup);
   mesh(Box(.1,.03,.03), M.brass, { x:xl+.06, y:W.y1+.22, z:W.z1+.45 }, windowGroup);
   // curtains: pleated planes, gathered towards the bottom
   const cMat = toon({ color:PAL.curtain, map:texCurtain, side:THREE.DoubleSide });
+  ROOM.curtains = [];
   const curtain = (zA, zB, flip)=>{
     const wdt = Math.abs(zB-zA), hgt = W.y1+.2-.05;
     const g = new THREE.PlaneGeometry(wdt, hgt, 28, 8);
@@ -817,6 +821,9 @@ const windowGroup = new THREE.Group(); scene.add(windowGroup);
     }
     g.computeVertexNormals();
     const m = mesh(g, cMat, { x:xl+.09, y:.05+hgt/2, z:(zA+zB)/2, ry:Math.PI/2 }, windowGroup);
+    // drawn: each panel stretches from its wall edge to just past the middle of the window
+    const zc = (W.z0+W.z1)/2, edge = flip ? zB : zA, inner = flip ? zc - .05 : zc + .05;
+    ROOM.curtains.push({ m, w:wdt, zOpen:(zA+zB)/2, zShut:(edge+inner)/2, sShut:Math.abs(inner-edge)/wdt });
     return m;
   };
   curtain(W.z0-.52, W.z0+.12, false);
@@ -1493,6 +1500,7 @@ interactive('kp17', kp17, { kind:'hold', label:'kp17' });
 interactive('tv', tvGroup, { kind:'use', label:'tv' });
 interactive('lamp', lampGroup, { kind:'use', label:'lamp' });
 interactive('roomba', roomba, { kind:'use', label:'roomba' });
+interactive('window', windowGroup, { kind:'use', label:'window' });
 
 /* =====================================================================
    CONTACT SHADOWS (soft blobs, stepped so they dither like pixel art)
@@ -2201,22 +2209,22 @@ const STATE = { lampOverride:null, party:false, channel:0, channelFlash:0, hover
 function applyTime(h){
   const T = sampleTime(h); TIME.T = T; TIME.h = h;
   hemi.color.set(T.hemi); hemi.groundColor.set(mix('#3a2a20', '#1a1418', T.stars)); hemi.intensity = T.amb * 2.1;
-  bounce.color.set(mix(T.sunCol, '#c98a50', .45)); bounce.intensity = T.sun * 1.5;
+  bounce.color.set(mix(T.sunCol, '#c98a50', .45)); ROOM.base = ROOM.base || {}; ROOM.base.bounce = T.sun * 1.5;
   let dir;
   if (T.sun > .05){
     const dayT = clamp((h-5.5)/13.5, 0, 1);
     const elev = lerp(.12, .95, Math.sin(dayT*Math.PI));
     dir = V3(Math.cos(elev)*.95, -Math.sin(elev), lerp(.55, -.1, dayT)).normalize();
-    sun.color.set(T.sunCol); sun.intensity = T.sun;
+    sun.color.set(T.sunCol); ROOM.base.sun = T.sun;
   } else {
     dir = V3(.8, -.55, .25).normalize();
-    sun.color.set('#9fb4ff'); sun.intensity = .55*T.moon;
+    sun.color.set('#9fb4ff'); ROOM.base.sun = .55*T.moon;
   }
   sun.position.copy(sun.target.position).addScaledVector(dir, -14);
   updateShaft(dir);
   shaftMat.uniforms.color.value.set(T.sun > .05 ? T.sunCol : '#9fb4ff');
-  shaftMat.uniforms.strength.value = T.sun > .05 ? clamp(T.sun*.05, 0, .12) : .03*T.moon;
-  ROOM.dustStrength = T.sun > .05 ? clamp(T.sun*.35, 0, .85) : .25*T.moon;
+  ROOM.base.shaft = T.sun > .05 ? clamp(T.sun*.05, 0, .12) : .03*T.moon;
+  ROOM.base.dust = T.sun > .05 ? clamp(T.sun*.35, 0, .85) : .25*T.moon;
   const lampOn = STATE.lampOverride !== null ? STATE.lampOverride : T.lamp > .5;
   STATE.lampOn = lampOn;
   lampLight.intensity = lampOn ? LAMP_I : 0;
@@ -2309,6 +2317,13 @@ function frame(now){
   roomba.position.x = clamp(roomba.position.x, -2.6, 2.6); roomba.position.z = clamp(roomba.position.z, -2.25, 3.8);
   ROOM.roombaBrush.rotation.y += dt*14;
   ROOM.roombaLed.material.color.set(Math.sin(t*3) > 0 ? '#46e6ff' : '#1d5f6a');
+
+  // curtains: drawn panels stretch across the window and shut most of the light out
+  STATE.curtainT = damp(STATE.curtainT || 0, STATE.curtainsShut ? 1 : 0, 3.2, dt);
+  const c = STATE.curtainT, open = 1 - c*.88;
+  ROOM.curtains.forEach(k=>{ k.m.scale.x = lerp(1, k.sShut, c); k.m.position.z = lerp(k.zOpen, k.zShut, c); });
+  sun.intensity = ROOM.base.sun * (1 - c*.7); bounce.intensity = ROOM.base.bounce * open;
+  shaftMat.uniforms.strength.value = ROOM.base.shaft * open; ROOM.dustStrength = ROOM.base.dust * open;
 
   // dust motes in the light shaft
   const dp = dust.geometry.attributes.position, da = dust.geometry.attributes.alpha, shp = shaftGeo.attributes.position;
@@ -2672,7 +2687,7 @@ ON_USE.gameboy = (hit, key)=>{
 ON_USE.coffee = ()=>{
   if (HOLD.anim) return;
   if (coffee.level <= .05){
-    HOLD.anim = { t:0, step:(t)=>{ coffee.level = Math.min(1, t/1.1); return t < 1.1; } }; sfx.pour(); announce('Refilled.'); return;
+    HOLD.anim = { t:0, step:(t)=>{ coffee.level = Math.min(1, t/1.1); return t < 1.1; } }; sfx.pour(); say(mug, 'refilled'); announce('Refilled.'); return;
   }
   ROOM.sipT = 1.25; sfx.sip();
   let drank = false;
@@ -2680,16 +2695,17 @@ ON_USE.coffee = ()=>{
     const k = Math.sin(clamp(t/1.25, 0, 1)*Math.PI);
     HOLD.useQ.setFromEuler(new THREE.Euler(k*.95, 0, -k*.12));
     HOLD.useP.set(0, k*.06, k*.16);
-    if (!drank && t > .6){ drank = true; coffee.level = Math.max(0, coffee.level - .34); }
+    if (!drank && t > .6){ drank = true; coffee.level = Math.max(0, coffee.level - .34); say(mug, coffee.level <= .05 ? 'last sip' : ['sip', 'still hot', 'good beans'][coffee.sips++ % 3]); }
     if (t >= 1.25){ ROOM.sipT = 0; return false; } return true; } };
   announce(coffee.level - .34 <= .05 ? 'Last sip.' : 'A sip.');
 };
 
 /* ---- succulent ---- */
-ON_USE.succulent = ()=>{ ROOM.rosetteWiggle = 1; sfx.water(); };
+const SUCC_LINES = ['it didn\u2019t need that', 'thriving', 'okay, that\u2019s enough water'];
+ON_USE.succulent = ()=>{ ROOM.rosetteWiggle = 1; sfx.water(); say(succulent, SUCC_LINES[((ROOM.watered = (ROOM.watered||0) + 1) - 1) % 3]); };
 
 /* ---- KP17 ---- */
-ON_USE.kp17 = ()=>{ if (!(ROOM.wave > 0)){ ROOM.wave = 2.2; sfx.servo(); } };
+ON_USE.kp17 = ()=>{ if (!(ROOM.wave > 0)){ ROOM.wave = 2.2; sfx.servo(); say(kp17, 'hi'); } };
 
 /* ---- albums: turning the sleeve slides the record out ---- */
 ON_PICK.album = ()=>{
@@ -2857,6 +2873,7 @@ const sfx = (()=>{
     servo(){ tone(140, .3, 'sawtooth', .018, 0, 260); tone(260, .25, 'sawtooth', .015, .5, 140); },
     roomba(){ [523,659,784,1046].forEach((f,i)=>tone(f, .06, 'square', .025, i*.07)); },
     lamp(){ tone(180, .03, 'square', .04); noise(.04, .04, 3000); },
+    curtain(){ noise(.55, .035, 1500, 6000); },
     cheat(){ [523,659,784,1046,784,1046].forEach((f,i)=>tone(f, .09, 'square', .035, i*.09)); },
     click(){ tone(660, .05, 'square', .03); tone(990, .06, 'square', .025, .045); },
   };
@@ -2873,7 +2890,7 @@ function announce(s){ statusEl.textContent = ''; setTimeout(()=>statusEl.textCon
 const hotLayer = $('#hot');
 const hots = Array.from({length:3}, ()=>{
   const a = document.createElement('a'); a.className = 'hot'; a.target = '_blank'; a.rel = 'noopener'; a.draggable = false; a.hidden = true;
-  a.addEventListener('click', e=>{ if (HOLD.dragged){ e.preventDefault(); return; } sfx.click(); });
+  a.addEventListener('click', e=>{ if (HOLD.dragged){ e.preventDefault(); return; } sfx.click(); if (HOLD.id) say(HOLD.obj, HOLD.id === 'phone' ? 'opening ' + a.getAttribute('aria-label').split(' (')[0] : 'opening Apple Music'); });
   a.addEventListener('pointerenter', ()=>{ if (HOLD.id === 'phone'){ PH.hover = +a.dataset.i; PH.dirty = true; } });
   a.addEventListener('pointerleave', ()=>{ if (HOLD.id === 'phone'){ PH.hover = -1; PH.dirty = true; } });
   a.addEventListener('focus', ()=>{ if (HOLD.id === 'phone'){ PH.hover = +a.dataset.i; PH.dirty = true; } });
@@ -2917,10 +2934,104 @@ function infoGroups(){
   }
   return groups;
 }
+/* ---- words in the room: hover names, floating reactions, the held-item plate ---- */
+function nameFor(id){
+  const it = INTERACT[id]; if (!it) return ['', ''];
+  if (id.startsWith('album-')){ const a = it.album; return [a.title, `${a.artist} · ${a.year}`]; }
+  const h = currentHour();
+  return ({
+    magazine:['magazine', 'Arahe No. 06 · projects'], phone:['phone', 'socials'], gameboy:['game boy', 'pocket dev'],
+    'cart-exp':['red cartridge', 'experience'], 'cart-skl':['blue cartridge', 'skills'], 'cart-time':['yellow cartridge', 'no label'],
+    coffee:['coffee', coffee.level > .05 ? 'still hot' : 'empty'], succulent:['echeveria', 'low maintenance'],
+    kp17:['kp17', '17-dof humanoid · desk model'], tv:['tv', `ch 0${STATE.channel+1} · ${CHANNELS[STATE.channel].toLowerCase()}`],
+    lamp:['lamp', STATE.lampOn ? 'on' : 'off'], roomba:['roomba', 'cleaning since 2024'],
+    window:['window', `${hourLabel(h)} · ${periodName(h).toLowerCase()}${TIME.warp !== null ? ' (warped)' : ''}`],
+  })[id] || [id, ''];
+}
+function holdHint(){
+  const id = HOLD.id; if (!id) return null;
+  if (id === 'magazine') return HOLD.mode === 'closed' ? ['magazine', 'click to open · drag to turn it'] : ['magazine:open', 'click a page to turn it'];
+  if (id === 'gameboy') return GBOS.power ? ['gameboy:on', 'scroll, or use the arrow keys'] : ['gameboy', 'click to switch it on'];
+  if (id.startsWith('cart-')) return ['cart', 'click to put it in the game boy'];
+  if (id.startsWith('album-')) return ['album', 'click to play it on Apple Music'];
+  return [id, { phone:'tap an app', coffee:'click to take a sip', succulent:'click to water it', kp17:'click and it waves' }[id] || 'drag to turn it'];
+}
+const SEEN = new Set(), FLOATS = [];
+const PLATE = { id:null, t0:0, key:null, hintT0:-9 };
+function say(target, text){
+  const b = new THREE.Box3().setFromObject(target.isObject3D ? target : INTERACT[target].obj);
+  FLOATS.push({ text, pos:V3((b.min.x+b.max.x)/2, b.max.y, (b.min.z+b.max.z)/2), t0:STATE.t });
+  if (FLOATS.length > 4) FLOATS.shift();
+}
+function sayScreen(text){ FLOATS.push({ text, screen:true, t0:STATE.t }); }
+function pxPlate(x, y, w, h){
+  mctx.fillStyle = 'rgba(14,12,19,.88)'; mctx.fillRect(x+1, y, w-2, h); mctx.fillRect(x, y+1, w, h-2);
+  mctx.fillStyle = '#3b3250'; mctx.fillRect(x+1, y, w-2, 1); mctx.fillRect(x+1, y+h-1, w-2, 1); mctx.fillRect(x, y+1, 1, h-2); mctx.fillRect(x+w-1, y+1, 1, h-2);
+}
+function shadowP(s, x, y, col){ drawP(mctx, s, x+1, y+1, 'rgba(14,12,19,.9)'); drawP(mctx, s, x, y, col); }
+function drawWords(t){
+  let drew = false;
+  // hover: a name by the cursor, mouse only
+  const hov = !HOLD.id && !INFO.on ? (STATE.keyHover || STATE.hovered) : null;
+  if (hov && (STATE.keyHover || (STATE.pointerIn && STATE.pointerType === 'mouse'))){
+    const [a, b] = nameFor(hov), w = Math.max(widthP(a), widthP(b)) + 8, h = b ? 22 : 12;
+    let x, y;
+    const bb = new THREE.Box3().setFromObject(INTERACT[hov].obj);
+    let bx0 = 1e9, bx1 = -1e9, by1 = -1e9;
+    for (let i=0;i<8;i++){ const p = V3(i&1?bb.max.x:bb.min.x, i&2?bb.max.y:bb.min.y, i&4?bb.max.z:bb.min.z).project(camera); const px = (p.x*.5+.5)*RW, py = (-p.y*.5+.5)*RH; bx0 = Math.min(bx0,px); bx1 = Math.max(bx1,px); by1 = Math.max(by1,py); }
+    const big = bx1 - bx0 > RW*.2;
+    if (big && !STATE.keyHover){ x = (bx0+bx1)/2 - w/2; y = Math.min(by1 + 4, RH - h - 40); }
+    else if (STATE.keyHover){ const p = V3((bb.min.x+bb.max.x)/2, bb.max.y, (bb.min.z+bb.max.z)/2).project(camera); x = (p.x*.5+.5)*RW - w/2; y = (-p.y*.5+.5)*RH - h - 4; }
+    else { x = (STATE.pointer.x*.5+.5)*RW + 7; y = (-STATE.pointer.y*.5+.5)*RH + 7; if (x + w > RW - 2) x -= w + 12; if (y + h > RH - 2) y -= h + 12; }
+    x = Math.round(clamp(x, 2, RW-w-2)); y = Math.round(clamp(y, 2, RH-h-2));
+    pxPlate(x, y, w, h); drawP(mctx, a, x+4, y+2, '#f4e9cf'); if (b) drawP(mctx, b, x+4, y+12, '#a197b3');
+    drew = true;
+  }
+  // floating reactions rise off the thing that made them
+  for (let i=FLOATS.length-1;i>=0;i--){
+    const f = FLOATS[i], age = t - f.t0, life = 1.9;
+    if (age > life){ FLOATS.splice(i,1); continue; }
+    let x, y;
+    if (f.screen){ x = RW/2; y = RH*.32; }
+    else { const p = f.pos.clone().project(camera); x = (p.x*.5+.5)*RW; y = (-p.y*.5+.5)*RH - 6; }
+    y -= Math.round(easeOut(Math.min(1, age/life)) * 14);
+    x = clamp(x, widthP(f.text)/2 + 3, RW - widthP(f.text)/2 - 3); y = clamp(y, 4, RH - 14);
+    const fade = age > life - .45 ? (life - age)/.45 : 1;
+    mctx.globalAlpha = fade > .66 ? 1 : fade > .33 ? .66 : .33;
+    shadowP(f.text, Math.round(x - widthP(f.text)/2), Math.round(y), '#f4e9cf');
+    mctx.globalAlpha = 1; drew = true;
+  }
+  // held item: a name plate under it, and how to use it the first time only
+  if (HOLD.id && HOLD.phase !== 'down'){
+    if (PLATE.id !== HOLD.id){ PLATE.id = HOLD.id; PLATE.t0 = t; PLATE.key = null; }
+    const hint = holdHint();
+    if (hint && hint[0] !== PLATE.key){ PLATE.key = hint[0]; PLATE.hint = hint[1]; if (!SEEN.has(hint[0])){ SEEN.add(hint[0]); PLATE.hintT0 = t; PLATE.first = !SEEN.has('any'); SEEN.add('any'); } else PLATE.hintT0 = -9; }
+    const expanded = (HOLD.id === 'magazine' && HOLD.mode !== 'closed') || (HOLD.id === 'gameboy' && HOLD.mode === 'lean');
+    const appear = clamp((t - PLATE.t0 - .35)/.25, 0, 1);
+    const hintAge = t - PLATE.hintT0, showHint = hintAge < 5;
+    const [a, b] = nameFor(HOLD.id);
+    const hintText = PLATE.hint + (PLATE.first ? ' · click away to put it back' : '');
+    if (appear > 0 && (!expanded || showHint)){
+      mctx.globalAlpha = appear > .66 ? 1 : appear > .33 ? .66 : .33;
+      if (!expanded){
+        const w = Math.max(widthP(a, 1), widthP(b)) + 12, h = 24, x = Math.round(RW/2 - w/2), y = RH - h - 8;
+        pxPlate(x, y, w, h); drawPC(mctx, a, RW/2, y+3, '#e9b04b'); drawPC(mctx, b, RW/2, y+13, '#f4e9cf');
+      }
+      if (showHint){
+        const f = hintAge > 4.4 ? (5 - hintAge)/.6 : 1;
+        mctx.globalAlpha *= f > .66 ? 1 : f > .33 ? .66 : .33;
+        const y = expanded ? 6 : RH - 24 - 8 - 13;
+        shadowP(hintText, Math.round(RW/2 - widthP(hintText)/2), y, '#a197b3');
+      }
+      mctx.globalAlpha = 1; drew = true;
+    }
+  } else PLATE.id = null;
+  return drew;
+}
 function drawMarks(t){
-  if (!INFO.on){ if (!INFO.cleared){ mctx.clearRect(0,0,marks.width,marks.height); INFO.cleared = true; } return; }
-  INFO.cleared = false;
   mctx.clearRect(0,0,marks.width,marks.height);
+  const words = drawWords(t);
+  if (!INFO.on) return words;
   const groups = infoGroups(); let gi = 0; const labels = [];
   const box = new THREE.Box3();
   for (const label in groups){
@@ -2972,6 +3083,7 @@ function drawMarks(t){
     mctx.fillStyle = 'rgba(14,12,19,.85)'; mctx.fillRect(r.x, r.y, r.w, r.h);
     drawP(mctx, L.label, r.x + 2, r.y + 1, '#f4e9cf');
   }
+  return true;
 }
 function infoOn(){ INFO.on = true; INFO.t0 = STATE.t; $('#info').setAttribute('aria-pressed', 'true'); sfx.tick(true);
   announce('You can pick up: the magazine, the phone, the Game Boy and its three cartridges, the coffee, the succulent, KP17 on the console, and the records on the right wall. The TV, lamp and roomba react to a click.'); }
@@ -2980,17 +3092,25 @@ function infoOff(){ INFO.on = false; $('#info').setAttribute('aria-pressed', 'fa
 /* =====================================================================
    ACTIONS + INPUT
    ===================================================================== */
+const ROOMBA_LINES = ['beep boop', 'mapping the room. again.', 'excuse me', '412 laps and counting'];
 function activate(id){
   const it = INTERACT[id]; if (!it) return;
   if (it.kind === 'hold'){ pickUp(id); return; }
-  if (id === 'tv'){ STATE.channel = (STATE.channel + 1) % CHANNELS.length; STATE.channelFlash = 1; sfx.channel(); announce('TV, channel ' + (STATE.channel+1) + ': ' + CHANNELS[STATE.channel].toLowerCase()); }
+  if (id === 'tv'){ STATE.channel = (STATE.channel + 1) % CHANNELS.length; STATE.channelFlash = 1; sfx.channel(); say('tv', `ch 0${STATE.channel+1} \u00b7 ${CHANNELS[STATE.channel].toLowerCase()}`); announce('TV, channel ' + (STATE.channel+1) + ': ' + CHANNELS[STATE.channel].toLowerCase()); }
   if (id === 'lamp'){ STATE.lampOverride = !STATE.lampOn; TIME.dirty = true; sfx.lamp(); }
-  if (id === 'roomba'){ roombaAI.spin = .9; sfx.roomba(); }
+  if (id === 'roomba'){ roombaAI.spin = .9; sfx.roomba(); say('roomba', ROOMBA_LINES[(ROOM.beeps = (ROOM.beeps||0) + 1) % ROOMBA_LINES.length]); }
+  if (id === 'window'){
+    STATE.curtainsShut = !STATE.curtainsShut; sfx.curtain();
+    const h = currentHour();
+    say('window', STATE.curtainsShut ? 'curtains drawn' : `${hourLabel(h)} \u00b7 ${periodName(h).toLowerCase()}${TIME.warp !== null ? ', warped' : ' where you are'}`);
+    announce(STATE.curtainsShut ? 'Curtains drawn.' : 'Curtains open. The sky outside follows your clock.');
+  }
 }
 function setPointer(e){
   const r = canvas.getBoundingClientRect();
   STATE.pointer.set(((e.clientX - r.left)/r.width)*2 - 1, -((e.clientY - r.top)/r.height)*2 + 1);
   STATE.pointerIn = true;
+  if (e.pointerType) STATE.pointerType = e.pointerType;
 }
 let down = null;
 function onWorld(e){ return e.target === canvas || !!(e.target.closest && e.target.closest('a.hot')); }
@@ -3043,7 +3163,7 @@ function updateCursor(){
 /* keyboard: a list of the room's objects, visible only while it has focus */
 const keyNav = $('#keynav');
 const KEY_ITEMS = [['magazine','Magazine: projects'],['phone','Phone: socials'],['gameboy','Game Boy'],['cart-exp','Red cartridge'],['cart-skl','Blue cartridge'],['cart-time','Yellow cartridge'],['coffee','Coffee'],['succulent','Succulent'],['kp17','KP17 robot']]
-  .concat(ALBUMS.map((a,i)=>['album-'+i, `${a.title}, ${a.artist}`])).concat([['tv','TV'],['lamp','Lamp'],['roomba','Roomba']]);
+  .concat(ALBUMS.map((a,i)=>['album-'+i, `${a.title}, ${a.artist}`])).concat([['tv','TV'],['lamp','Lamp'],['roomba','Roomba'],['window','Window curtains']]);
 KEY_ITEMS.forEach(([id,label])=>{
   const b = document.createElement('button'); b.textContent = label; b.dataset.id = id;
   b.addEventListener('focus', ()=>{ if (!HOLD.id) STATE.keyHover = id; });
@@ -3057,7 +3177,7 @@ let kIdx = 0;
 addEventListener('keydown', e=>{
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   kIdx = key === KONAMI[kIdx] ? kIdx + 1 : (key === KONAMI[0] ? 1 : 0);
-  if (kIdx === KONAMI.length){ kIdx = 0; STATE.party = !STATE.party; sfx.unlock(); sfx.cheat(); announce(STATE.party ? 'Party mode.' : 'Party over.'); return; }
+  if (kIdx === KONAMI.length){ kIdx = 0; STATE.party = !STATE.party; sfx.unlock(); sfx.cheat(); sayScreen(STATE.party ? 'party mode' : 'party over'); announce(STATE.party ? 'Party mode.' : 'Party over.'); return; }
   if (INFO.on && key !== 'Tab'){ infoOff(); if (key === 'Escape') return; }
   if (key === 'Escape'){ if (HOLD.id){ const back = HOLD.viaKey && keyNav.querySelector(`[data-id="${HOLD.id}"]`); putDown(); if (back) back.focus({ preventScroll:true }); else if (document.activeElement && document.activeElement.closest && document.activeElement.closest('a.hot')) document.activeElement.blur(); } return; }
   if (!HOLD.id){ if ((key === 'i' || key === '?') && !(e.target.closest && e.target.closest('button,a'))) infoOn(); return; }
