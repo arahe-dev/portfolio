@@ -1817,7 +1817,7 @@ const pondWater = (()=>{
 const lilies = [];
 (function buildLilies(){
   const R = mulberry(83);
-  const spots = [[-10.6,-1.9],[-10.9,-1.5],[-7.6,-2.0],[-7.3,-1.6],[-11.1,-.8],[-8.0,-.6],[-10.2,-2.4]];
+  const spots = [[-10.6,-1.95],[-11.15,-1.3],[-7.6,-2.05],[-7.15,-1.4],[-11.0,-.6],[-8.0,-.55],[-10.05,-2.45]];
   spots.forEach(([x,z],i)=>{
     const r = .14 + R()*.08;
     const g = new THREE.CircleGeometry(r, 14, .35, Math.PI*2 - .7);
@@ -2006,7 +2006,10 @@ function patioUpdate(dt, t){
   tp.needsUpdate = ta.needsUpdate = true;
 
   koiUpdate(dt, t);
-  lilies.forEach(l=>{ l.m.position.y = PATIO.waterY + .006 + Math.sin(t*.8 + l.ph)*.002; });
+  // pads bob, and rock a little when a fish passes beneath
+  PADS.forEach(p=>{ p.nudge = Math.max(0, p.nudge - dt*.6); const l = p.l;
+    l.m.position.y = PATIO.waterY + .006 + Math.sin(t*.8 + l.ph)*.002 + Math.sin(t*6 + l.ph)*.004*p.nudge;
+    l.m.rotation.x = -Math.PI/2 + Math.sin(t*3.1 + l.ph)*.05*p.nudge; l.m.rotation.y = Math.cos(t*2.7 + l.ph)*.05*p.nudge; });
   leavesUpdate(dt, t);
   // fireflies
   const fp = flies.geometry.attributes.position, fa = flies.geometry.attributes.alpha;
@@ -2504,6 +2507,20 @@ function koiBend(f, t){
 }
 
 const _kv = V3();
+/* lily pads: fish at the surface go around them, fish passing under dive deep enough to clear them */
+const PADS = lilies.map(l=>({ x:l.m.position.x, z:l.m.position.z, r:l.m.geometry.parameters.radius, l, nudge:0 }));
+function padUnder(f){
+  // distance from each pad to the fish's spine (tail to nose), less the body's half-width
+  const hx = Math.cos(f.h)*f.L*.5, hz = Math.sin(f.h)*f.L*.5;
+  let best = null, bd = 1e9;
+  PADS.forEach(p=>{
+    const ax = f.x - hx*1.2, az = f.z - hz*1.2, bx = f.x + hx*.8, bz = f.z + hz*.8;
+    const vx = bx - ax, vz = bz - az, k = clamp(((p.x - ax)*vx + (p.z - az)*vz)/(vx*vx + vz*vz), 0, 1);
+    const d = Math.hypot(p.x - (ax + vx*k), p.z - (az + vz*k)) - p.r - f.L*.085;
+    if (d < bd){ bd = d; best = p; }
+  });
+  return [best, bd];
+}
 function koiUpdate(dt, t){
   const trust = KOI.trust, dawn = (()=>{ const h = TIME.h || 12; return h > 5 && h < 7.5; })();
   // pellets: fly, plop, float, drift, sink
@@ -2519,6 +2536,7 @@ function koiUpdate(dt, t){
       p.age += dt;
       p.vx = damp(p.vx, Math.sin(t*.3 + i)*.012, 1, dt); p.vz = damp(p.vz, Math.cos(t*.27 + i*1.3)*.012, 1, dt);
       p.x += p.vx*dt; p.z += p.vz*dt;
+      PADS.forEach(q=>{ const dx = p.x - q.x, dz = p.z - q.z, d = Math.hypot(dx, dz); if (d < q.r + .06){ const k = (q.r + .06)/Math.max(d, 1e-3); p.x = q.x + dx*k; p.z = q.z + dz*k; } });
       if (!inPond(p.x, p.z, .93)){ p.x = lerp(p.x, POND.x, dt*.5); p.z = lerp(p.z, POND.z, dt*.5); }
       p.y = PATIO.waterY + .004 - Math.max(0, p.age - 22)*.01;
       if (p.age > 30) PELLETS.splice(i, 1);
@@ -2581,11 +2599,12 @@ function koiUpdate(dt, t){
       // suction: once the mouth is close and pointed at it, the pellet is drawn in
       if (d < .16 && off < .8 && f.depth < .08){ const k = Math.min(1, dt*3.5); p.x = lerp(p.x, mouthX, k); p.z = lerp(p.z, mouthZ, k); }
       if (d < .035 + f.L*.05 && f.depth < .06){
-        PELLETS.splice(PELLETS.indexOf(p), 1); f.target = null; f.gulp = 1; f.full += 1; f.chew = .5 + (1 - D.bold)*.9 + Math.random()*.4; ate = true;
+        PELLETS.splice(PELLETS.indexOf(p), 1); f.target = null; f.gulp = 1; f.full += 1; f.bites = (f.bites || 0) + 1; f.chew = .5 + (1 - D.bold)*.9 + Math.random()*.4; ate = true;
         ripple(mouthX, mouthZ, .3); splash(mouthX, mouthZ, 2, .35); sfx.gulp && sfx.gulp(f.L);
-        if (D.leaper && !KOI.leapt && f.full >= D.appetite*.5 && (trust >= 3 || dawn)){
+        if (D.leaper && !KOI.leapt && f.bites >= 6 && (trust >= 3 || dawn)){
           const x1 = f.x + Math.cos(f.h)*.95, z1 = f.z + Math.sin(f.h)*.95;
-          const clear = Math.sign(f.x - POND.x) === Math.sign(x1 - POND.x) && Math.min(Math.abs(f.x - POND.x), Math.abs(x1 - POND.x)) > .5;
+          let clear = Math.sign(f.x - POND.x) === Math.sign(x1 - POND.x) && Math.min(Math.abs(f.x - POND.x), Math.abs(x1 - POND.x)) > .5;
+          for (let k=0;k<=8 && clear;k++){ const qx = lerp(f.x, x1, k/8), qz = lerp(f.z, z1, k/8); if (PADS.some(p=>Math.hypot(qx - p.x, qz - p.z) < p.r + .14)) clear = false; }
           if (inPond(x1, z1, .72) && clear){ KOI.leapt = true; f.leap = { t:0, x0:f.x, z0:f.z, x1, z1 }; splash(f.x, f.z, 16, 1); ripple(f.x, f.z, 1.3); sfx.splash && sfx.splash(.8);
             announce('Kin, the golden koi, leaps clean out of the water.'); }
         }
@@ -2621,6 +2640,17 @@ function koiUpdate(dt, t){
     if (face !== null && Math.hypot(gx - f.x, gz - f.z) < .2) want = face;
     let ax = Math.cos(want), az = Math.sin(want);
     koi.forEach(o=>{ if (o === f) return; const dx = f.x - o.x, dz = f.z - o.z, d = Math.hypot(dx, dz), r = (f.L + o.L)*(f.target || f.chew > 0 ? .24 : .45); if (d < r && d > 1e-4){ const k = (1 - d/r)*1.4*(f.target ? .3 : 1)*clamp(o.L/f.L, .5, 1.6); ax += dx/d*k; az += dz/d*k; } });
+    const shallow = surf || f.target || f.depth < f.L*.22 + .03;
+    if (shallow) PADS.forEach(p=>{
+      // the narrow mouth may reach the rim; the body (and a look ahead) keeps off it
+      const closeFood = f.target && Math.hypot(f.target.x - f.x, f.target.z - f.z) < f.L + .3;
+      [[.5, .025], [.85, closeFood ? -1 : .05], [0, f.L*.1 + .03], [-.4, f.L*.08 + .02]].forEach(([ahead, pad])=>{
+        if (pad < 0) return;
+        const px = f.x + Math.cos(f.h)*f.L*ahead, pz = f.z + Math.sin(f.h)*f.L*ahead;
+        const dx = px - p.x, dz = pz - p.z, d = Math.hypot(dx, dz), R2 = p.r + pad;
+        if (d < R2 && d > 1e-4){ const k = (1 - d/R2)*2.4; ax += dx/d*k; az += dz/d*k; }
+      });
+    });
     const lx = f.x + Math.cos(f.h)*.45, lz = f.z + Math.sin(f.h)*.45;
     if (!inPond(lx, lz, .84)){ const k = 1.6; ax += (POND.x - f.x)*k; az += (POND.z - f.z)*k; }
     want = Math.atan2(az, ax);
@@ -2635,7 +2665,23 @@ function koiUpdate(dt, t){
 
     // depth and posture: rise to eat or to beg, cruise lower, rest on the bottom
     const wantDepth = surf ? .012 : (D.old && f.rest > 0 ? .3 : f.d0 + .04*Math.sin(f.ph*.13 + i*2));
-    f.depth = damp(f.depth, wantDepth, surf ? 2.4 : .8, dt);
+    const [pad, gap] = padUnder(f), clearDepth = f.L*.24 + .025;
+    let wd = wantDepth;
+    const diving = !surf && gap < .12;               // cruising toward a pad: go under it
+    const underPad = gap < .02 && f.depth >= clearDepth - .006;   // already beneath one: swim out before rising
+    if (diving || underPad) wd = Math.max(wd, clearDepth);
+    f.depth = damp(f.depth, wd, diving ? 6 : (surf ? 2.4 : .8), dt);
+    if (underPad){ f.depth = Math.max(f.depth, clearDepth); if (gap < 0) pad.nudge = Math.min(1, pad.nudge + dt*2); }
+    // too shallow to pass under: the body slides around the rim instead of through it
+    else if (f.depth < clearDepth - .004){
+      const c = Math.cos(f.h), sn = Math.sin(f.h);
+      for (let it=0;it<3;it++) PADS.forEach(p=>{ for (let a = .4; a >= -.61; a -= .1){ const w = .092;
+        const px = f.x + c*f.L*a, pz = f.z + sn*f.L*a, dx = px - p.x, dz = pz - p.z, d = Math.hypot(dx, dz), R2 = p.r + f.L*w;
+        if (d < R2){ const k = (R2 - d)/Math.max(d, 1e-4); f.x += dx*k; f.z += dz*k; }
+      } });
+      // squeezed between pads and still touching one: duck under rather than clip it
+      if (padUnder(f)[1] < -.004) f.depth = clearDepth;
+    }
     if (!(KOI.call && koiAnswers(f))) f.gape = Math.max(0, f.gape - dt*.8);
     const begging = surf && (f.gape > .2 || f.target);
     f.pitch = damp(f.pitch, begging ? .32 : (f.depth - wantDepth)*-1.2, 3, dt);
