@@ -1680,7 +1680,7 @@ const PM = {
   gravel: toon({ map:texGravel }), deck: toon({ map:texDeck }), deckSide: toon({ color:'#5b4a3c' }),
   siding: toon({ map:texSiding }), stone: toon({ color:'#8f8c84', map:texStone }), stoneDark: toon({ color:'#6f6d68', map:texStone }),
   moss: toon({ map:texMoss, alphaTest:.5 }), bamboo: toon({ map:texBamboo }), fence: toon({ map:texBambooFence }),
-  rope: toon({ color:'#3b2a1e' }), vermilion: toon({ color:'#c4452c' }), bridgeWood: toon({ color:'#8a6a4b' }),
+  rope: toon({ color:'#3b2a1e' }), bambooNode: toon({ color:'#b7bf73' }), bambooIn: toon({ color:'#c9c59a', side:THREE.DoubleSide }), vermilion: toon({ color:'#c4452c' }), bridgeWood: toon({ color:'#8a6a4b' }),
   leaf: toon({ side:THREE.DoubleSide }), mud: toon({ color:'#1d2a22' }),
 };
 PM.gravel.map.repeat.set(5, 5);
@@ -1857,38 +1857,114 @@ const lilies = [];
   PATIO.bridge = { x, zA, zB };
 })();
 
-/* ---------------- shishi-odoshi ---------------- */
-const SHI = { phase:'fill', t:0, a:.38 };
+/* ---------------- shishi-odoshi ----------------
+   A balance, not an animation: water from the pipe fills the open end until it outweighs the
+   heavier closed end, the tube swings down and empties, and the closed end falls back onto the stone. */
+const SHI = { a:.4, w:0, m:0, push:0, inflow:0, outflow:0, rest:.4, stop:-.62, knock:0 };
 const shishiGroup = new THREE.Group(); PATIO.g.add(shishiGroup);
 (function buildShishi(){
   const a = -.95, [px, pz] = pondPoint(a, 1.1);
   shishiGroup.position.set(px, PATIO.y, pz);
-  const yaw = Math.atan2(-(POND.z - pz), POND.x - px);       // the mouth faces the pond
-  shishiGroup.rotation.y = yaw;
-  const bam = (len, r, x, y, z, rx=0, rz=0, parent=shishiGroup)=>{ const m = mesh(new THREE.CylinderGeometry(r, r, len, 8), PM.bamboo, { x, y, z, rx, rz }, parent); return m; };
-  // stand: two posts and an axle
-  bam(.62, .03, -.05, .31, .1); bam(.62, .03, -.05, .31, -.1);
-  bam(.24, .012, -.05, .48, 0, Math.PI/2);
-  // the rocking tube, pivoting near its middle
+  shishiGroup.rotation.y = Math.atan2(-(POND.z - pz), POND.x - px);       // the mouth faces the pond
+  const bam = (len, r, x, y, z, rx=0, rz=0, parent=shishiGroup, open=false)=>mesh(new THREE.CylinderGeometry(r, r, len, 10, 1, open), PM.bamboo, { x, y, z, rx, rz }, parent);
+  const node = (x, y, z, r, rx=0, rz=0, parent=shishiGroup)=>mesh(new THREE.CylinderGeometry(r*1.08, r*1.08, .018, 10), PM.bambooNode, { x, y, z, rx, rz }, parent);
+  const cut = (x, y, z, r, rx, ry, rz, parent=shishiGroup)=>mesh(new THREE.CircleGeometry(r*.82, 10), PM.bambooIn, { x, y, z, rx, ry, rz, cast:false }, parent);
+  // the frame: two posts lashed with dark rope, and an axle through the tube
+  [.1, -.1].forEach(z=>{ bam(.64, .028, -.05, .32, z); node(-.05, .2, z, .028); node(-.05, .44, z, .028); mesh(new THREE.TorusGeometry(.03, .007, 4, 10), PM.rope, { x:-.05, y:.5, z, rx:Math.PI/2 }, shishiGroup); });
+  bam(.26, .011, -.05, .48, 0, Math.PI/2);
+  // the rocking tube: open at the mouth (+x), closed by a node at the back
   SHI.pivot = new THREE.Group(); SHI.pivot.position.set(-.05, .48, 0); shishiGroup.add(SHI.pivot);
-  const tube = bam(1.0, .05, .08, 0, 0, 0, Math.PI/2, SHI.pivot);
-  [-.3, .14].forEach(x=>mesh(new THREE.CylinderGeometry(.054, .054, .02, 8), toon({ color:'#b9c27a' }), { x:.08 + x, rz:Math.PI/2 }, SHI.pivot));
-  mesh(new THREE.CircleGeometry(.046, 8), toon({ color:'#2c3318' }), { x:.585, ry:Math.PI/2, cast:false }, SHI.pivot);
-  SHI.mouth = new THREE.Object3D(); SHI.mouth.position.set(.6, 0, 0); SHI.pivot.add(SHI.mouth);
-  // the stone the closed end knocks on
-  const st = mesh(new THREE.IcosahedronGeometry(.13, 1), PM.stoneDark, { x:-.42, y:.1, z:0 }, shishiGroup); st.scale.set(1, .7, 1);
+  bam(1.0, .05, .08, 0, 0, 0, Math.PI/2, SHI.pivot, true);
+  bam(.98, .043, .08, 0, 0, 0, Math.PI/2, SHI.pivot, true).material = PM.bambooIn;      // the inside of the culm
+  [-.18, .22].forEach(x=>node(.08 + x, 0, 0, .05, 0, Math.PI/2, SHI.pivot));
+  mesh(new THREE.CircleGeometry(.05, 10), PM.bambooNode, { x:-.42, ry:-Math.PI/2 }, SHI.pivot);
+  // the mouth is cut on a slant, the classic shape
+  const lip = mesh(new THREE.CylinderGeometry(.05, .05, .12, 10, 1, true, 0, Math.PI), PM.bamboo, { x:.62, y:-.012, rz:Math.PI/2, rx:Math.PI/2 }, SHI.pivot);
+  lip.scale.set(1, 1, .9);
+  SHI.mouth = new THREE.Object3D(); SHI.mouth.position.set(.6, .01, 0); SHI.pivot.add(SHI.mouth);
+  SHI.lipOut = new THREE.Object3D(); SHI.lipOut.position.set(.68, -.03, 0); SHI.pivot.add(SHI.lipOut);
+  // the stone the closed end knocks on, set on a flat footing so it sits right under the tube
+  const st = mesh(new THREE.IcosahedronGeometry(.12, 1), PM.stoneDark, { x:-.43, y:.17, z:0 }, shishiGroup); st.scale.set(1, .78, .9);
+  mesh(new THREE.CylinderGeometry(.16, .19, .08, 9), PM.stone, { x:-.43, y:.04, z:0 }, shishiGroup);
   SHI.stone = st;
-  // the feed pipe
-  bam(1.1, .04, .62, .55, -.18);
-  const spout = bam(.42, .025, .58, .98, -.04, Math.PI/2*.9, 0);
-  spout.rotation.set(Math.PI/2*.55, 0, 0);
-  SHI.spoutTip = new THREE.Object3D(); SHI.spoutTip.position.set(.6, .82, .08); shishiGroup.add(SHI.spoutTip);
-  // a stone basin under the mouth
-  const basin = mesh(lathe([[0,0],[.2,0],[.24,.12],[.2,.14],[.16,.06],[0,.06]], 10), PM.stone, { x:.72, y:0, z:0 }, shishiGroup);
+  // the feed: a post and a kakei pipe that reaches out over the mouth, tilted down
+  bam(1.0, .034, .503, .5, -.34); node(.503, .3, -.34, .034); node(.503, .7, -.34, .034);
+  const from = V3(.503, .97, -.32), to = V3(.503, .9, -.06), dir = to.clone().sub(from);
+  const pipe = bam(dir.length(), .026, (from.x+to.x)/2, (from.y+to.y)/2, (from.z+to.z)/2, 0, 0, shishiGroup, true);
+  pipe.quaternion.setFromUnitVectors(V3(0,1,0), dir.clone().normalize());
+  cut(to.x, to.y, to.z, .026, 0, 0, 0).quaternion.setFromUnitVectors(V3(0,0,1), dir.clone().normalize());
+  SHI.spoutTip = new THREE.Object3D(); SHI.spoutTip.position.copy(to).addScaledVector(dir.clone().normalize(), .004); shishiGroup.add(SHI.spoutTip);
+  SHI.spoutDir = dir.clone().normalize();
+  // a stone basin catches the pour; it has water in it
+  mesh(lathe([[0,0],[.21,0],[.25,.13],[.22,.15],[.17,.07],[0,.07]], 14), PM.stone, { x:.6, y:0, z:0 }, shishiGroup);
+  SHI.basinWater = mesh(new THREE.CircleGeometry(.175, 16), toon({ color:'#3e6a66', emissive:'#20403e', emissiveIntensity:.3 }), { x:.6, y:.118, z:0, rx:-Math.PI/2, cast:false }, shishiGroup);
+  SHI.basin = V3(.6, .118, 0);
 })();
 interactive('shishi', shishiGroup, { kind:'use', zone:'patio', label:'shishi-odoshi' });
-const trickle = makePoints(26, '#cfe8f2', .012);
-const tricP = Array.from({length:26}, (_,i)=>({ t:i/26, pour:false }));
+
+/* water as a continuous stream: a thin tube laid along a falling arc, with bands that run down it */
+const texStream = canvasTex(4, 16, (ctx,w,h)=>{ const c = ['#dff2f8','#e9f7fb','#d2ebf3','#c4e3ee']; for (let y=0;y<h;y++){ ctx.fillStyle = c[Math.floor(y/4)]; ctx.fillRect(0, y, w, 1); } ctx.fillStyle = '#f6fcfe'; ctx.fillRect(1, 0, 1, h); }, { repeat:[1, 1] });
+texStream.wrapS = texStream.wrapT = THREE.RepeatWrapping;
+function makeStream(n=18, radial=6){
+  const g = new THREE.BufferGeometry(), pos = new Float32Array((n+1)*(radial+1)*3), uv = [], idx = [];
+  for (let i=0;i<=n;i++) for (let j=0;j<=radial;j++) uv.push(j/radial, i/n);
+  for (let i=0;i<n;i++) for (let j=0;j<radial;j++){ const a = i*(radial+1)+j, b = a + radial + 1; idx.push(a, b, a+1, b, b+1, a+1); }
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+  const mat = new THREE.MeshBasicMaterial({ map:texStream.clone(), transparent:true, opacity:.9, depthWrite:false, side:THREE.DoubleSide });
+  mat.map.wrapS = mat.map.wrapT = THREE.RepeatWrapping; mat.map.needsUpdate = true;
+  const m = new THREE.Mesh(g, mat); m.frustumCulled = false; fx_(m); scene.add(m);
+  // a 1px core line: a stream thinner than a pixel would otherwise break into dashes
+  const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array((n+1)*3), 3));
+  const line = new THREE.Line(lg, new THREE.LineBasicMaterial({ color:'#e4f5fa', transparent:true, opacity:.95, depthWrite:false }));
+  line.frustumCulled = false; fx_(line); scene.add(line);
+  return { m, g, line, n, radial, pts:Array.from({length:n+1}, ()=>V3()), r:new Float32Array(n+1), len:0 };
+}
+const _sa = V3(), _sb = V3(), _sc = V3(), _up = V3(0,1,0);
+/* lay the stream along a ballistic arc from p0 with velocity v0, until it drops to floorY or a catch point */
+function layStream(S, p0, v0, r0, floorY, catchAt, catchR, alpha, dt=0){
+  const g = 9.8, pts = S.pts, n = S.n;
+  // time to fall to the floor
+  const a = -.5*g, b = v0.y, c = p0.y - floorY, T = (-b - Math.sqrt(Math.max(0, b*b - 4*a*c)))/(2*a);
+  let tEnd = Math.max(.02, T), caught = false;
+  if (catchAt){
+    // the first moment the arc reaches the catch height; is the catch point under it?
+    const c2 = p0.y - catchAt.y, T2 = (-b - Math.sqrt(Math.max(0, b*b - 4*a*c2)))/(2*a);
+    if (T2 > 0 && T2 < tEnd){ const x = p0.x + v0.x*T2, z = p0.z + v0.z*T2; if (Math.hypot(x - catchAt.x, z - catchAt.z) < catchR){ tEnd = T2; caught = true; } }
+  }
+  // the falling front travels at the water's own pace: a stream never jumps to full length
+  if (S.tCur === undefined || alpha < .02) S.tCur = alpha < .02 ? 0 : tEnd;
+  S.tCur = tEnd < S.tCur ? tEnd : Math.min(tEnd, S.tCur + dt);
+  const reached = S.tCur >= tEnd - 1e-4; tEnd = Math.max(.004, S.tCur);
+  let L = 0;
+  for (let i=0;i<=n;i++){
+    const t = tEnd*i/n;
+    pts[i].set(p0.x + v0.x*t, p0.y + v0.y*t - .5*g*t*t, p0.z + v0.z*t);
+    if (i) L += pts[i].distanceTo(pts[i-1]);
+    // a falling stream thins as it speeds up, and wobbles a touch
+    const sp = Math.hypot(v0.x, v0.y - g*t, v0.z);
+    S.r[i] = r0 * Math.sqrt(Math.max(.15, Math.hypot(v0.x, v0.y, v0.z) + .25) / (sp + .25)) * (1 + .1*Math.sin(STATE.t*23 + i*1.7));
+  }
+  S.len = L;
+  const P = S.g.attributes.position.array, R = S.radial;
+  for (let i=0;i<=n;i++){
+    _sa.subVectors(pts[Math.min(n, i+1)], pts[Math.max(0, i-1)]).normalize();
+    _sb.crossVectors(_sa, Math.abs(_sa.y) > .95 ? V3(1,0,0) : _up).normalize(); _sc.crossVectors(_sa, _sb);
+    for (let j=0;j<=R;j++){ const an = j/R*Math.PI*2, k = (i*(R+1)+j)*3, cr = Math.cos(an)*S.r[i], sr = Math.sin(an)*S.r[i];
+      P[k] = pts[i].x + _sb.x*cr + _sc.x*sr; P[k+1] = pts[i].y + _sb.y*cr + _sc.y*sr; P[k+2] = pts[i].z + _sb.z*cr + _sc.z*sr; }
+  }
+  S.g.attributes.position.needsUpdate = true;
+  const LP = S.line.geometry.attributes.position.array;
+  for (let i=0;i<=n;i++){ LP[i*3] = pts[i].x; LP[i*3+1] = pts[i].y; LP[i*3+2] = pts[i].z; }
+  S.line.geometry.attributes.position.needsUpdate = true;
+  S.line.material.opacity = .95*alpha; S.line.visible = alpha > .02;
+  S.line.material.color.set(Math.sin(STATE.t*40) > .6 ? '#f4fbfd' : '#dcf1f7');
+  S.m.material.opacity = .9*alpha; S.m.visible = alpha > .02;
+  S.m.material.map.repeat.set(1, Math.max(1, Math.round(L*6)));
+  return { end:pts[n], caught:caught && reached, reached };
+}
+const SHI_IN = makeStream(16, 5), SHI_OUT = makeStream(18, 7);
+const shiDrops = makePoints(36, '#e4f4f8', .012); const SHI_DROPS = [];
+function shiSplash(p, n, k){ for (let i=0;i<n;i++){ const a = Math.random()*Math.PI*2, s = (.2 + Math.random()*.5)*k; SHI_DROPS.push({ x:p.x, y:p.y, z:p.z, vx:Math.cos(a)*s, vy:(.4 + Math.random()*.8)*k, vz:Math.sin(a)*s, floor:p.y - .01 }); } while (SHI_DROPS.length > 36) SHI_DROPS.shift(); }
 
 /* ---------------- stone lantern ---------------- */
 const lanternGroup = new THREE.Group(); PATIO.g.add(lanternGroup);
@@ -1984,26 +2060,56 @@ function patioUpdate(dt, t){
   PATIO.spill.intensity = STATE.lampOn ? 1.4 * (.35 + DOOR.open*.65) : .25*DOOR.open;
   if (!near) return;
 
-  // shishi-odoshi: fill, tip, pour, knock
-  SHI.t += dt;
+  // shishi-odoshi: integrate the balance in small steps so every motion is continuous
   const S = SHI;
-  if (S.phase === 'fill'){ S.a = lerp(.38, .02, ease(Math.min(1, S.t/7))); if (S.t > 7 || S.force){ S.force = false; S.phase = 'tip'; S.t = 0; } }
-  else if (S.phase === 'tip'){ S.a = lerp(.02, -.62, Math.min(1, (S.t/.3)*(S.t/.3))); if (S.t > .3){ S.phase = 'pour'; S.t = 0; S.mouth.getWorldPosition(_pv); ripple(_pv.x, _pv.z + 0, .9); sfx.pour2 && sfx.pour2(); } }
-  else if (S.phase === 'pour'){ S.a = -.62; if (S.t > .45){ S.phase = 'back'; S.t = 0; } }
-  else if (S.phase === 'back'){ S.a = lerp(-.62, .46, Math.min(1, (S.t/.17)*(S.t/.17))); if (S.t > .17){ S.phase = 'settle'; S.t = 0; if (STATE.zone !== 'room' || DOOR.open > .3){ sfx.tak(); say(SHI.stone, 'tak'); } ripple(POND.x - 1.6, POND.z + .9, .35); } }
-  else if (S.phase === 'settle'){ S.a = .38 + .08*Math.exp(-S.t*7)*Math.cos(S.t*30); if (S.t > .6){ S.phase = 'fill'; S.t = 0; } }
+  S.mouth.getWorldPosition(_pv);
+  const spw = SHI.spoutTip.getWorldPosition(V3()), sdir = SHI.spoutDir.clone().transformDirection(shishiGroup.matrixWorld);
+  // the inflow stream: is the open end under it right now?
+  const inRes = layStream(SHI_IN, spw, sdir.multiplyScalar(.32), .011, shishiGroup.localToWorld(SHI.basin.clone()).y, _pv, .06, 1, dt);
+  const catching = inRes.caught;
+  SHI_IN.m.material.map.offset.y -= dt*2.2;
+  for (let k=0, n=4; k<n; k++){
+    const h = dt/n;
+    // water in: a steady trickle when it lands in the mouth. Water out: once the mouth tips below level
+    S.inflow = catching ? .15 : 0;
+    const tilt = Math.max(0, -S.a + .06);
+    S.outflow = S.m * Math.min(9, tilt*tilt*55);
+    S.m = Math.max(0, S.m + (S.inflow - S.outflow)*h);
+    // torques: water at the mouth pulls it down, the heavier closed end pulls it back; a hand push when clicked
+    // as it dips, the water runs toward the mouth and its pull grows: a slow start, then a commitment
+    const arm = .28 + .4*clamp(S.rest - S.a, 0, 1);
+    const tq = (-S.m*arm + .26*.95) * Math.cos(S.a) - S.push*.62;
+    S.w += (tq*22 - S.w*.9)*h;
+    S.a += S.w*h;
+    if (S.a >= S.rest){ S.a = S.rest; if (S.w > 0){ const hit = S.w; S.w = hit < .08 ? 0 : -hit*.3; if (hit > .35) S.knock = Math.max(S.knock, hit); } }
+    if (S.a <= S.stop){ S.a = S.stop; if (S.w < 0) S.w = -S.w*.12; }
+    S.push = Math.max(0, S.push - h*1.1);
+  }
   S.pivot.rotation.z = S.a;
-  // water: a thin stream from the spout into the tube, and a gush when it tips
-  const tp = trickle.geometry.attributes.position, ta = trickle.geometry.attributes.alpha;
-  const sp = SHI.spoutTip.getWorldPosition(V3()), mo = SHI.mouth.getWorldPosition(V3());
-  tricP.forEach((p,i)=>{
-    p.t += dt*1.6; if (p.t > 1) p.t -= 1;
-    let x, y, z, a = .7;
-    if (S.phase === 'pour' || S.phase === 'tip'){ const k = (i/26 + t*2.2) % 1; x = mo.x + (POND.x - mo.x)*.05*k; z = mo.z + (POND.z - mo.z)*.05*k; y = mo.y - k*.35; a = S.phase === 'pour' ? .9 : .4; }
-    else { x = lerp(sp.x, mo.x, p.t); z = lerp(sp.z, mo.z, p.t); y = lerp(sp.y, mo.y + .02, p.t) - Math.sin(p.t*Math.PI)*.0; a = i % 3 ? .65 : 0; }
-    tp.setXYZ(i, x, y, z); ta.setX(i, a);
-  });
-  tp.needsUpdate = ta.needsUpdate = true;
+  if (S.knock){
+    // the knock: loudness follows how hard the closed end came down
+    if (STATE.zone !== 'room' || DOOR.open > .3){ sfx.tak(clamp(S.knock/2.2, .35, 1)); if (S.knock > 1.2) say(SHI.stone, 'tak'); }
+    ripple(POND.x - 1.6, POND.z + .9, .2 + .15*clamp(S.knock/2, 0, 1));
+    S.knock = 0;
+  }
+  // the pour: water leaves the slanted lip along the tube, faster the steeper it hangs
+  const lip = SHI.lipOut.getWorldPosition(V3()), axis = V3(1, 0, 0).transformDirection(SHI.pivot.matrixWorld);
+  const flowK = clamp(S.outflow/2.2, 0, 1);
+  const basinW = shishiGroup.localToWorld(SHI.basin.clone());
+  const outRes = layStream(SHI_OUT, lip, axis.multiplyScalar(.25 + flowK*.9), .009 + .022*Math.sqrt(flowK), basinW.y, null, 0, clamp(flowK*3, 0, 1), dt);
+  SHI_OUT.m.material.map.offset.y -= dt*(2 + flowK*5);
+  if (flowK > .05 && outRes.reached && Math.random() < dt*30*flowK) shiSplash(outRes.end, 2, .3 + flowK*.6);
+  if (inRes.reached && Math.random() < dt*(catching ? 6 : 14)) shiSplash(inRes.end, 1, catching ? .18 : .3);
+  if (S.outflow > .4 && !S.gushing){ S.gushing = true; sfx.gush && sfx.gush(); }
+  if (S.outflow < .05) S.gushing = false;
+  // the basin surface shivers while it's being poured into
+  SHI.basinWater.position.y = SHI.basin.y + Math.sin(t*31)*.003*flowK;
+  SHI.basinWater.scale.setScalar(1 + Math.sin(t*17)*.015*flowK);
+  // drops
+  const dp2 = shiDrops.geometry.attributes.position, da2 = shiDrops.geometry.attributes.alpha;
+  for (let i=SHI_DROPS.length-1;i>=0;i--){ const d = SHI_DROPS[i]; d.vy -= 9.8*dt*.6; d.x += d.vx*dt; d.y += d.vy*dt; d.z += d.vz*dt; if (d.y < d.floor) SHI_DROPS.splice(i, 1); }
+  for (let i=0;i<36;i++){ const d = SHI_DROPS[i]; if (d){ dp2.setXYZ(i, d.x, d.y, d.z); da2.setX(i, .85); } else da2.setX(i, 0); }
+  dp2.needsUpdate = da2.needsUpdate = true;
 
   koiUpdate(dt, t);
   // pads bob, and rock a little when a fish passes beneath
@@ -4308,7 +4414,9 @@ const sfx = (()=>{
     curtain(){ noise(.55, .035, 1500, 6000); },
     blip(){ tone(880, .04, 'square', .025); },
     slide(){ noise(.7, .03, 120, 700); noise(.1, .03, 1800, 5000, .62); },
-    tak(){ noise(.05, .09, 1400, 4200); tone(640, .035, 'square', .03); tone(190, .08, 'triangle', .05); },
+    // a hollow knock: a short woody click, the culm's ring, and a low body
+    tak(k=1){ noise(.04, .09*k, 1600, 5200); tone(720, .05, 'triangle', .045*k, 0, 640); tone(1460, .03, 'sine', .015*k); tone(205, .12, 'sine', .06*k, 0, 170); },
+    gush(){ noise(.55, .03, 400, 2600); noise(.3, .02, 1500, 6000, .08); },
     toss(){ noise(.12, .015, 2500, 7000); },
     plop(){ tone(900 + Math.random()*500, .05, 'sine', .018, 0, 300); },
     gulp(L=.5){ const f = 260/(L*2); tone(f, .06, 'sine', .035, 0, f*.55); noise(.05, .015, 600, 2400, .02); },
@@ -4573,7 +4681,7 @@ function activate(id){
     feed(p.x, p.z);
     announce(koi.every(f=>f.full >= f.def.appetite) ? 'A pinch of koi food. They\'re full; it drifts.' : 'A pinch of koi food lands on the water.');
   }
-  if (id === 'shishi'){ if (SHI.phase === 'fill') SHI.force = true; }
+  if (id === 'shishi'){ SHI.push = 1; }
   if (id === 'lantern'){ const lit = LANTERN.on !== null ? LANTERN.on : (TIME.T ? TIME.T.lamp > .5 : false); LANTERN.on = !lit; sfx.lamp(); }
 }
 function setPointer(e){
