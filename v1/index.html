@@ -1,0 +1,1615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Pocket Dev — Abdur Raheem Imami</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+  :root{
+    --shell:#C8C8B4;
+    --shell-shadow:#8a8a78;
+    --shell-hi:#dcdcc8;
+    --bezel:#1a1a1a;
+    --btn-dark:#2b2b2b;
+    --btn-red:#a8001a;
+    --btn-red-hi:#d4001f;
+    --lcd-0:#9bbc0f;
+    --lcd-1:#8bac0f;
+    --lcd-2:#306230;
+    --lcd-3:#0f380f;
+    --page:#0d0d1a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--page);color:#fff;min-height:100%;font-family:-apple-system,Helvetica,Arial,sans-serif;overflow-x:hidden}
+  body{
+    display:flex;align-items:center;justify-content:center;min-height:100vh;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 45%, #16162a 0%, #0d0d1a 60%, #070710 100%);
+    padding:24px;
+    overflow:hidden;
+  }
+
+  .stage{position:relative}
+  .shell{
+    width:520px;height:820px;
+    background:var(--shell);
+    border-top-left-radius:36px;border-top-right-radius:36px;
+    border-bottom-left-radius:60px 24px;border-bottom-right-radius:60px 24px;
+    position:relative;
+    box-shadow:
+      inset 0 2px 0 var(--shell-hi),
+      inset 0 -6px 0 var(--shell-shadow),
+      inset 6px 0 0 rgba(0,0,0,0.04),
+      inset -6px 0 0 rgba(0,0,0,0.06),
+      0 20px 40px rgba(0,0,0,0.6),
+      0 40px 80px rgba(0,0,0,0.5);
+    background-image:
+      repeating-linear-gradient(45deg, rgba(0,0,0,0.015) 0 2px, transparent 2px 4px),
+      repeating-linear-gradient(-45deg, rgba(255,255,255,0.015) 0 2px, transparent 2px 4px);
+    padding:28px 28px 24px;
+    display:flex;flex-direction:column;align-items:center;
+    user-select:none;
+  }
+  .shell::before{
+    content:"";position:absolute;left:14px;right:14px;top:18px;height:1px;
+    background:rgba(0,0,0,0.1);border-bottom:1px solid rgba(255,255,255,0.4);
+  }
+
+  .battery{
+    position:absolute;top:10px;right:16px;display:flex;gap:3px;align-items:center;
+    font-family:"Courier New",monospace;font-size:8px;color:#555;
+  }
+  .battery .cell{width:6px;height:8px;background:#3a3a3a;border-radius:1px}
+
+  /* Screen module — wider to host a 160x144 LCD (native ratio) */
+  .screen-module{
+    width:100%;
+    background:var(--bezel);
+    border-radius:10px 10px 40px 10px;
+    padding:22px 22px 40px;
+    margin-top:18px;
+    box-shadow:inset 0 2px 0 #000, inset 0 -1px 0 #444, 0 2px 0 rgba(255,255,255,0.5);
+  }
+  .screen-toprow{
+    display:flex;align-items:center;justify-content:space-between;
+    color:#b8b8b8;font-family:"Courier New",monospace;font-size:9px;letter-spacing:2px;
+    margin-bottom:10px;
+  }
+  .led{
+    width:10px;height:10px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #ff8080, #ff3333 50%, #8a0000 100%);
+    box-shadow:0 0 6px rgba(255,60,60,0.4), inset 0 0 2px rgba(0,0,0,0.4);
+  }
+  /* LCD: native 160x144 aspect. Sharp, no blur. */
+  .lcd-wrap{
+    position:relative;width:100%;
+    aspect-ratio: 160 / 144;
+    background:var(--lcd-1);
+    border:3px solid #0a1a0a;border-radius:2px;overflow:hidden;
+    image-rendering:pixelated;
+    box-shadow:inset 0 0 0 1px #000;
+  }
+  .lcd-wrap canvas{
+    position:absolute;inset:0;width:100%;height:100%;
+    image-rendering:pixelated;
+    image-rendering:crisp-edges;
+  }
+  .screen-root{position:absolute;inset:0;padding:8px 10px;overflow:hidden;color:var(--lcd-3)}
+  .stencil{
+    position:absolute;left:0;right:0;bottom:12px;text-align:center;
+    color:#9a1a5a;font-style:italic;font-family:Georgia,serif;letter-spacing:1px;font-size:16px;
+  }
+
+  /* Brand */
+  .brand{width:100%;display:flex;align-items:baseline;justify-content:space-between;padding:4px 6px 0}
+  .brand .left{font-style:italic;font-family:Georgia,serif;color:#2a2a2a;font-size:20px;font-weight:600}
+  .brand .right{font-family:"Helvetica Neue",Arial,sans-serif;color:#2a2a2a;font-weight:900;letter-spacing:6px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .brand .right .tm{font-size:8px;letter-spacing:1px;transform:translateY(-6px);opacity:0.7}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:#2a2a2a;display:inline-block}
+  .brand .line{width:18px;height:2px;background:#2a2a2a;display:inline-block}
+
+  /* Controls */
+  .controls{width:100%;flex:1;position:relative;margin-top:10px;padding:0 6px}
+
+  .dpad{position:absolute;left:12px;top:24px;width:120px;height:120px}
+  .dpad .cross{
+    position:absolute;inset:0;background:var(--btn-dark);
+    clip-path: polygon(33% 0, 67% 0, 67% 33%, 100% 33%, 100% 67%, 67% 67%, 67% 100%, 33% 100%, 33% 67%, 0 67%, 0 33%, 33% 33%);
+    box-shadow: inset 0 0 0 2px #000;
+    pointer-events:none;
+  }
+  .dpad .hub{position:absolute;left:40px;top:40px;width:40px;height:40px;background:#1a1a1a;border-radius:6px;pointer-events:none}
+  .dpad .ridge{position:absolute;left:50%;top:50%;width:2px;height:24px;background:#0a0a0a;transform:translate(-50%,-50%);pointer-events:none}
+  .dpad .ridge2{position:absolute;left:50%;top:50%;width:24px;height:2px;background:#0a0a0a;transform:translate(-50%,-50%);pointer-events:none}
+  .dpad button{position:absolute;background:transparent;border:0;cursor:pointer;outline:0;z-index:2;touch-action:manipulation}
+  .dpad .up{left:33%;top:0;width:34%;height:33%}
+  .dpad .down{left:33%;top:67%;width:34%;height:33%}
+  .dpad .left{left:0;top:33%;width:33%;height:34%}
+  .dpad .right{left:67%;top:33%;width:33%;height:34%}
+  .dpad button.pressed ~ .cross{filter:brightness(0.8)}
+
+  .ab{position:absolute;right:10px;top:18px;width:160px;height:120px;transform:rotate(-18deg);transform-origin:right bottom}
+  .ab button{
+    position:absolute;width:54px;height:54px;border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, var(--btn-red-hi), var(--btn-red) 55%, #5a000d 100%);
+    border:none;cursor:pointer;outline:0;color:#2a2a2a;font-weight:900;font-family:Georgia,serif;font-style:italic;font-size:14px;touch-action:manipulation;
+    box-shadow:inset 0 2px 0 rgba(255,255,255,0.25),inset 0 -3px 0 rgba(0,0,0,0.35),0 3px 0 rgba(0,0,0,0.3),0 4px 6px rgba(0,0,0,0.4);
+    display:flex;align-items:center;justify-content:center;
+    transition:transform 60ms,box-shadow 60ms;
+  }
+  .ab .btn-a{right:0;top:0}
+  .ab .btn-b{right:60px;top:34px}
+  .ab button:active,.ab button.pressed{transform:translateY(2px)}
+
+  .ss{position:absolute;left:50%;top:172px;transform:translateX(-50%) rotate(-22deg);display:flex;gap:24px}
+  .ss button{
+    width:58px;height:14px;border-radius:14px;
+    background:linear-gradient(to bottom,#3a3a3a,#1a1a1a);
+    border:none;cursor:pointer;outline:0;touch-action:manipulation;
+    box-shadow:inset 0 1px 0 #5a5a5a,inset 0 -1px 0 #000,0 2px 0 rgba(0,0,0,0.3);
+  }
+  .ss-labels{position:absolute;left:50%;top:194px;transform:translateX(-50%) rotate(-22deg);display:flex;gap:24px}
+  .ss-labels span{width:58px;text-align:center;font:800 8px "Helvetica Neue",sans-serif;color:#2a2a2a;letter-spacing:1.5px}
+
+  .speaker{
+    position:absolute;right:26px;bottom:18px;transform:rotate(-22deg);transform-origin:right bottom;
+    display:grid;grid-template-columns:repeat(3,6px);grid-auto-rows:6px;gap:10px 10px;
+  }
+  .speaker i{display:block;width:6px;height:6px;border-radius:50%;background:#6d6d5d;box-shadow:inset 0 1px 1px rgba(0,0,0,0.4),0 1px 0 rgba(255,255,255,0.4)}
+
+  .jack{position:absolute;left:26px;bottom:24px;font:7px "Helvetica Neue",Arial;color:#555;letter-spacing:1px}
+
+  /* Gear button for settings */
+  .gear{
+    position:absolute;top:6px;left:16px;width:22px;height:22px;border-radius:50%;
+    background:transparent;border:1px solid rgba(0,0,0,0.15);color:#2a2a2a;
+    display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;
+  }
+  .gear:hover{background:rgba(0,0,0,0.04)}
+
+  /* Side hint */
+  .hint{
+    position:absolute;right:-270px;top:20px;width:240px;
+    color:#9999b0;font-family:ui-monospace,monospace;font-size:11px;line-height:1.6;
+  }
+  .hint h4{color:#fff;margin:0 0 8px;font-family:"Helvetica Neue",sans-serif;font-size:12px;letter-spacing:2px;font-weight:700}
+  .hint kbd{display:inline-block;padding:1px 5px;border:1px solid #333;border-radius:3px;background:#1a1a2a;color:#c8c8df;font-family:inherit;font-size:10px}
+  .hint .row{display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px dashed #222}
+  .hint .row span:first-child{color:#7a7a90}
+
+  /* Modal overlay (Settings / In-game Settings) */
+  .modal{
+    position:fixed;inset:0;background:rgba(4,4,12,0.7);display:none;align-items:center;justify-content:center;z-index:1000;
+  }
+  .modal.on{display:flex}
+  .modal .box{
+    width:min(560px,92vw);max-height:86vh;overflow:auto;
+    background:#0f0f1c;border:1px solid #2a2a44;border-radius:12px;padding:22px 24px;color:#e6e6f5;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    box-shadow:0 30px 80px rgba(0,0,0,0.7);
+  }
+  .modal h3{margin:0 0 4px;font-size:16px;letter-spacing:2px}
+  .modal .sub{color:#8a8aa8;font-size:12px;margin-bottom:16px}
+  .modal .group{border-top:1px solid #22223a;padding:12px 0}
+  .modal .group:first-of-type{border-top:0;padding-top:0}
+  .modal .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;font-size:13px}
+  .modal label{color:#b8b8d0}
+  .modal select,.modal input[type=range]{background:#1a1a2e;color:#fff;border:1px solid #333;border-radius:6px;padding:4px 8px;font:inherit}
+  .modal input[type=color]{width:40px;height:28px;background:transparent;border:1px solid #333;border-radius:6px;padding:0}
+  .swatches{display:flex;gap:8px;flex-wrap:wrap}
+  .swatch{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.3)}
+  .swatch.on{border-color:#fff}
+  .bind-btn{
+    background:#1a1a2e;border:1px solid #333;color:#fff;border-radius:6px;padding:4px 10px;font:inherit;cursor:pointer;min-width:90px;
+  }
+  .bind-btn.listening{background:#44224a;border-color:#9977ff;color:#ffd}
+  .modal .buttons{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+  .btn{background:#2a2a44;border:0;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font:inherit}
+  .btn.primary{background:#5b8cff;color:#0a0a1a;font-weight:700}
+  .btn:hover{filter:brightness(1.1)}
+
+  /* Sections */
+  .section-title{
+    font-family:"Helvetica Neue",Arial,sans-serif;font-weight:900;letter-spacing:3px;font-size:13px;
+    color:var(--lcd-3);border-bottom:2px solid var(--lcd-2);padding-bottom:4px;margin-bottom:8px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .section-title .pg{font-size:10px;letter-spacing:1px;color:var(--lcd-2)}
+  .lcd-text{font-family:ui-monospace,"Courier New",monospace;color:var(--lcd-3);font-size:13px;line-height:1.4}
+  .blink{animation:blink 0.9s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .slow-blink{animation:blink 1.6s steps(2) infinite}
+
+  /* TITLE SCREEN */
+  .title-screen{position:relative;height:100%;text-align:center;padding:10px 6px 6px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+  .title-screen .corner{position:absolute;color:var(--lcd-3);font-size:14px;line-height:1}
+  .title-screen .corner.tl{top:4px;left:4px}
+  .title-screen .corner.tr{top:4px;right:4px}
+  .title-screen .corner.bl{bottom:4px;left:4px}
+  .title-screen .corner.br{bottom:4px;right:4px}
+  .hearts{display:flex;gap:6px;font-size:14px;color:var(--lcd-3);margin-bottom:4px}
+  .hearts .dim{color:var(--lcd-2);opacity:0.5}
+  .ts-name{font-family:"Helvetica Neue",Arial;font-weight:900;letter-spacing:5px;color:var(--lcd-3);font-size:26px;line-height:1}
+  .ts-sub{font-family:ui-monospace,monospace;color:var(--lcd-2);font-size:10px;margin-top:4px;letter-spacing:2px}
+  .ts-coin{font-family:"Helvetica Neue",Arial;color:var(--lcd-3);font-weight:800;font-size:10px;letter-spacing:2px;margin-top:6px}
+  .ts-press{font-family:"Helvetica Neue",Arial;font-weight:800;color:var(--lcd-3);font-size:13px;letter-spacing:3px;margin-top:12px}
+  .ts-foot{font-family:ui-monospace,monospace;color:var(--lcd-2);font-size:9px;margin-top:auto;padding-bottom:2px;letter-spacing:1px}
+
+  /* ABOUT */
+  .about-grid{display:flex;gap:10px;align-items:flex-start;margin-top:2px}
+  .about-portrait{position:relative;padding:2px;border:2px solid var(--lcd-3);border-radius:2px}
+  .portrait-tag{position:absolute;left:-2px;bottom:-8px;background:var(--lcd-3);color:var(--lcd-0);font:700 9px ui-monospace,monospace;padding:1px 3px;letter-spacing:1px}
+  .about-stats{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:12px;flex:1}
+  .about-stats .k{color:var(--lcd-2);font-weight:700;letter-spacing:1px;font-size:11px}
+  .about-stats .v{color:var(--lcd-3);font-weight:700;letter-spacing:1px}
+  .about-bio{margin-top:12px;font-family:ui-monospace,monospace;color:var(--lcd-3);font-size:12px;line-height:1.4}
+  .chip-row{display:flex;gap:4px;margin-top:10px;flex-wrap:wrap}
+  .chip{font-family:"Helvetica Neue",Arial;font-weight:800;font-size:10px;color:var(--lcd-0);background:var(--lcd-3);padding:2px 6px;letter-spacing:1px;border-radius:2px}
+
+  /* SKILLS */
+  .stats-wrap{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+  .stat{display:flex;align-items:center;gap:6px;font-family:ui-monospace,monospace;font-size:12px;color:var(--lcd-3)}
+  .stat .name{width:58px;font-weight:700;letter-spacing:1px;font-size:10px}
+  .stat .bar{flex:1;display:flex;gap:1px;padding:1px;border:1px solid var(--lcd-2)}
+  .stat .bar i{flex:1;height:10px;background:var(--lcd-0);display:inline-block}
+  .stat .bar i.on{background:var(--lcd-3)}
+  .stat .val{width:28px;text-align:right;font-weight:700;font-size:11px}
+  .skill-foot{margin-top:10px;font:700 10px "Helvetica Neue",Arial;color:var(--lcd-2);letter-spacing:2px;text-align:center;border-top:1px dashed var(--lcd-2);padding-top:6px}
+
+  /* PROJECTS */
+  .proj-list{display:flex;flex-direction:column;gap:3px;margin-top:4px}
+  .project-row{display:flex;gap:6px;align-items:center;font-family:ui-monospace,monospace;font-size:12px;color:var(--lcd-3);padding:3px 4px;border-radius:2px}
+  .project-row.sel{background:var(--lcd-3);color:var(--lcd-0)}
+  .project-row.sel *{color:var(--lcd-0)}
+  .project-row .ptr{width:10px;font-weight:900}
+  .project-row .pn{color:var(--lcd-2);font-size:10px;font-weight:700}
+  .project-row.sel .pn{color:var(--lcd-0)}
+  .project-row .pname{flex:1;letter-spacing:1px;font-weight:700}
+  .project-row .pyear{font-size:10px;opacity:0.8}
+  .proj-foot{margin-top:8px;font:700 10px "Helvetica Neue",Arial;color:var(--lcd-2);letter-spacing:2px;text-align:center;border-top:1px dashed var(--lcd-2);padding-top:4px}
+
+  .project-detail{position:relative;margin-top:4px;padding:4px;border:2px solid var(--lcd-3);border-radius:2px}
+  .pd-badge{position:absolute;top:-8px;right:4px;background:var(--lcd-3);color:var(--lcd-0);font:900 10px ui-monospace,monospace;padding:1px 4px;letter-spacing:1px}
+  .pd-name{font:900 16px "Helvetica Neue",Arial;letter-spacing:2px;color:var(--lcd-3);line-height:1}
+  .pd-sub{color:var(--lcd-2);font:700 10px ui-monospace,monospace;margin-top:3px;letter-spacing:1px}
+  .pd-stack{color:var(--lcd-3);font:700 11px ui-monospace,monospace;margin-top:6px;letter-spacing:1px}
+  .pd-desc{margin-top:6px;font:400 11px ui-monospace,monospace;color:var(--lcd-3);line-height:1.45}
+  .pd-bar{height:4px;margin-top:8px;background:repeating-linear-gradient(90deg,var(--lcd-3) 0 4px,transparent 4px 8px)}
+  .pd-foot{margin-top:6px;font:700 10px "Helvetica Neue",Arial;color:var(--lcd-2);letter-spacing:2px;text-align:center}
+
+  /* CONTACT */
+  .contact-list{display:flex;flex-direction:column;gap:5px;margin-top:6px}
+  .c-row{display:flex;align-items:center;gap:8px;font-family:ui-monospace,monospace;font-size:11px;color:var(--lcd-3);border-bottom:1px dashed var(--lcd-2);padding-bottom:3px}
+  .c-icon{width:10px;color:var(--lcd-3);font-weight:900}
+  .c-label{width:54px;font-weight:700;color:var(--lcd-2);letter-spacing:1px;font-size:10px}
+  .c-val{flex:1;font-weight:700;letter-spacing:0.5px}
+  .resume-box{margin-top:10px;padding:6px;border:2px dashed var(--lcd-3);text-align:center}
+  .rb-label{font:900 10px "Helvetica Neue",Arial;color:var(--lcd-2);letter-spacing:3px}
+  .rb-press{font:900 12px "Helvetica Neue",Arial;color:var(--lcd-3);letter-spacing:2px;margin-top:2px}
+  .coin-strip{margin-top:8px;font-family:ui-monospace,monospace;color:var(--lcd-2);font-size:10px;text-align:center;letter-spacing:2px;opacity:0.7}
+
+  .cursor{display:inline-block;width:7px;height:12px;background:var(--lcd-3);vertical-align:-2px;animation:blink 0.7s steps(2) infinite}
+
+  /* Boot */
+  .boot{position:absolute;inset:0;background:#000;z-index:5;display:flex;align-items:center;justify-content:center;color:var(--lcd-3);font-family:"Helvetica Neue",Arial;font-weight:900;letter-spacing:6px;font-size:14px}
+  .boot.hide{opacity:0;transition:opacity 400ms;pointer-events:none}
+  .boot .logo{animation:bootLogo 1.4s ease-out forwards;opacity:0}
+  @keyframes bootLogo{0%{opacity:0;transform:translateY(12px)}30%{opacity:1;transform:translateY(0)}100%{opacity:1}}
+
+  /* Wipe */
+  .wipe{position:absolute;inset:0;pointer-events:none;z-index:4;display:grid;grid-template-columns:repeat(10,1fr);grid-template-rows:repeat(9,1fr)}
+  .wipe i{background:var(--lcd-3);opacity:0}
+  .wipe.run i{animation:wipeIn 200ms steps(1) forwards}
+  @keyframes wipeIn{0%{opacity:0}50%{opacity:1}100%{opacity:0}}
+
+  /* Palette modifiers */
+  .pal-gray{--lcd-0:#cfcfcf;--lcd-1:#a8a8a8;--lcd-2:#5a5a5a;--lcd-3:#1a1a1a}
+  .pal-dmg {--lcd-0:#d0d58c;--lcd-1:#8b956d;--lcd-2:#4d533c;--lcd-3:#1f1f1f}
+  .pal-blue{--lcd-0:#adecff;--lcd-1:#5bb9e8;--lcd-2:#20558c;--lcd-3:#071f3a}
+  .pal-amber{--lcd-0:#ffd99c;--lcd-1:#e8a04d;--lcd-2:#8a4a1f;--lcd-3:#2a1205}
+  .pal-mono{--lcd-0:#eaeaea;--lcd-1:#c4c4c4;--lcd-2:#444;--lcd-3:#000}
+
+  /* Konami code hint for easter egg */
+  .egg-hint{
+    position:fixed;left:16px;bottom:16px;font:11px ui-monospace,monospace;color:#3a3a55;
+    opacity:0.7;pointer-events:none;
+  }
+
+  @media (max-width:1000px){
+    .hint{display:none}
+    .shell{transform:scale(0.82);transform-origin:top center}
+  }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <div class="shell" id="shell">
+    <button class="gear" id="gear" title="Settings" aria-label="Settings">⚙</button>
+    <div class="battery"><span class="cell"></span><span class="cell"></span></div>
+
+    <div class="brand">
+      <div class="left" style="opacity:0;pointer-events:none;">·</div>
+      <div class="right">
+        <span class="dot"></span><span class="line"></span>
+        <span>POCKET&nbsp;DEV</span><span class="tm">TM</span>
+      </div>
+    </div>
+
+    <div class="screen-module">
+      <div class="screen-toprow">
+        <div class="led"></div>
+        <div>DOT MATRIX</div>
+        <div style="opacity:0">●</div>
+      </div>
+      <div class="lcd-wrap" id="lcdwrap">
+        <div class="screen-root" id="screen"></div>
+        <canvas id="tetris" width="160" height="144" style="display:none"></canvas>
+        <div class="wipe" id="wipe">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <div class="boot" id="boot"><div class="logo">▮ POCKET DEV</div></div>
+      </div>
+      <div class="stencil">Pocket Dev<span style="color:#777;font-style:normal;font-family:sans-serif;font-size:9px;margin-left:6px;letter-spacing:2px">COLOR READY</span></div>
+    </div>
+
+    <div class="controls">
+      <div class="dpad" id="dpad">
+        <button class="up"    data-key="up"></button>
+        <button class="down"  data-key="down"></button>
+        <button class="left"  data-key="left"></button>
+        <button class="right" data-key="right"></button>
+        <div class="cross"></div><div class="hub"></div><div class="ridge"></div><div class="ridge2"></div>
+      </div>
+      <div class="ab">
+        <button class="btn-a" data-key="a">A</button>
+        <button class="btn-b" data-key="b">B</button>
+      </div>
+      <div class="ss">
+        <button data-key="select"></button>
+        <button data-key="start"></button>
+      </div>
+      <div class="ss-labels"><span>SELECT</span><span>START</span></div>
+      <div class="speaker">
+        <i></i><i></i><i></i><i></i><i></i><i></i>
+        <i></i><i></i><i></i><i></i><i></i><i></i>
+        <i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
+      <div class="jack">PHONES</div>
+    </div>
+  </div>
+
+  <div class="hint" id="hint">
+    <h4>CONTROLS</h4>
+    <div class="row"><span>Navigate</span><span><kbd>←</kbd> <kbd>→</kbd></span></div>
+    <div class="row"><span>Scroll / select</span><span><kbd>↑</kbd> <kbd>↓</kbd></span></div>
+    <div class="row"><span>Confirm</span><span><kbd>A</kbd> / <kbd>Z</kbd></span></div>
+    <div class="row"><span>Back</span><span><kbd>B</kbd> / <kbd>X</kbd></span></div>
+    <div class="row"><span>Palette</span><span><kbd>Select</kbd></span></div>
+    <div class="row"><span>Settings</span><span>⚙ top-left</span></div>
+    <div style="margin-top:10px;color:#555;font-size:10px;line-height:1.5">
+      Hidden easter egg lives somewhere. Try a classic cheat code.
+    </div>
+  </div>
+</div>
+
+<div class="egg-hint" id="eggHint">↑ ↑ ↓ ↓ ← → ← → B A</div>
+
+<!-- Settings modal -->
+<div class="modal" id="settingsModal">
+  <div class="box">
+    <h3>SETTINGS</h3>
+    <div class="sub">Customize the device. Persists across reloads.</div>
+
+    <div class="group">
+      <div class="row"><label>LCD palette</label>
+        <select id="set-pal">
+          <option value="classic">Classic green</option>
+          <option value="gray">Grayscale</option>
+          <option value="dmg">DMG pocket</option>
+          <option value="blue">Backlit blue</option>
+          <option value="amber">Amber CRT</option>
+          <option value="mono">Mono high-contrast</option>
+        </select>
+      </div>
+      <div class="row"><label>Shell color</label>
+        <div class="swatches" id="set-shell">
+          <div class="swatch" data-col="#C8C8B4" style="background:#C8C8B4" title="Ash"></div>
+          <div class="swatch" data-col="#2b2b2b" style="background:#2b2b2b" title="Midnight"></div>
+          <div class="swatch" data-col="#f5d1d9" style="background:#f5d1d9" title="Rose"></div>
+          <div class="swatch" data-col="#cfe3ef" style="background:#cfe3ef" title="Ice"></div>
+          <div class="swatch" data-col="#1b1b3a" style="background:#1b1b3a" title="Deep"></div>
+          <div class="swatch" data-col="#e8c14d" style="background:#e8c14d" title="Banana"></div>
+          <div class="swatch" data-col="#8a1f1f" style="background:#8a1f1f" title="Crimson"></div>
+          <div class="swatch" data-col="transparent" style="background:repeating-conic-gradient(#444 0% 25%,#222 0% 50%) 50%/12px 12px" title="Atomic"></div>
+        </div>
+      </div>
+      <div class="row"><label>Custom shell</label><input type="color" id="set-shellcustom" value="#C8C8B4" /></div>
+      <div class="row"><label>Button color</label><input type="color" id="set-btn" value="#c0001e" /></div>
+      <div class="row"><label>Scanlines</label><input type="range" id="set-scan" min="0" max="25" value="8" /></div>
+      <div class="row"><label>Boot chime on start</label>
+        <select id="set-chime"><option value="on">On</option><option value="off">Off</option></select>
+      </div>
+    </div>
+
+    <div class="group">
+      <h4 style="margin:0 0 6px;font-size:12px;letter-spacing:2px;color:#9a9abf">KEYBINDS</h4>
+      <div id="bindList"></div>
+    </div>
+
+    <div class="buttons">
+      <button class="btn" id="set-reset">Reset</button>
+      <button class="btn primary" id="set-close">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- In-game settings modal -->
+<div class="modal" id="gameModal">
+  <div class="box" style="width:min(480px,92vw)">
+    <h3>GAME PAUSED</h3>
+    <div class="sub">Quick settings for Blockfall</div>
+    <div class="group">
+      <div class="row"><label>Starting level</label>
+        <select id="set-level"><option>1</option><option>2</option><option>3</option><option>5</option><option>8</option><option>10</option></select>
+      </div>
+      <div class="row"><label>Ghost piece</label>
+        <select id="gset-ghost"><option value="on">On</option><option value="off">Off</option></select>
+      </div>
+      <div class="row"><label>Mouse controls</label>
+        <select id="gset-mouse"><option value="on">On</option><option value="off">Off</option></select>
+      </div>
+    </div>
+    <div class="group">
+      <h4 style="margin:0 0 6px;font-size:12px;letter-spacing:2px;color:#9a9abf">KEYBINDS (GAME)</h4>
+      <div id="gbindList"></div>
+    </div>
+    <div class="buttons">
+      <button class="btn" id="gset-quit">Quit to portfolio</button>
+      <button class="btn primary" id="gset-resume">Resume</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==================== STATE ==================== */
+const TWEAK_DEFAULS = /*EDITMODE-BEGIN*/{
+  "palette": "classic",
+  "shell": "#C8C8B4",
+  "button": "#c0001e",
+  "scan": 8,
+  "chime": "on",
+  "startLevel": 1,
+  "ghost": "on",
+  "mouse": "on"
+}/*EDITMODE-END*/;
+
+// load from localStorage if present
+const LS_KEY = "pocketdev-settings-v1";
+let prefs = Object.assign({}, TWEAK_DEFAULS);
+try{
+  const saved = JSON.parse(localStorage.getItem(LS_KEY)||"null");
+  if(saved) prefs = Object.assign(prefs, saved);
+}catch(e){}
+
+// keybinds
+const DEFAULT_BINDS = {
+  left:["ArrowLeft"], right:["ArrowRight"], up:["ArrowUp"], down:["ArrowDown"],
+  a:["z","Z","a","A"], b:["x","X","b","B"],
+  start:["Enter"," "], select:["Shift","c","C"],
+  hold:["Shift","c","C"], rotateCW:["z","Z","a","A"], rotateCCW:["x","X","b","B"], hardDrop:["ArrowUp"], softDrop:["ArrowDown"],
+  pause:["Escape","p","P"],
+};
+let binds = JSON.parse(JSON.stringify(DEFAULT_BINDS));
+try{
+  const savedBinds = JSON.parse(localStorage.getItem(LS_KEY+"-binds")||"null");
+  if(savedBinds) binds = Object.assign(binds, savedBinds);
+}catch(e){}
+
+const state = {
+  section:0, projectIdx:0, projectDetail:-1,
+  inGame:false, gamePaused:false,
+  palette: prefs.palette,
+  statsAnim:0,
+  pdScrollY:0,
+};
+
+const PROJECTS = [
+  {name:"BREAD v2", sub:"From-scratch CUDA MoE Inference", stack:"CUDA · C++ · GGUF", year:"2026",
+   desc:["> Port danveloper's flash-moe (macOS/Metal only) to Windows/CUDA","> Target: Qwen3.5-35B-A3B (35B params MoE) on RTX 4060 (8GB VRAM)","> 3-tier weight streaming: VRAM→pinned RAM→NVMe SSD with async prefetch","> 18-slot LRU expert cache, custom GGUF parser, Q4_K/Q6_K dequant (verified vs. ggml-quants.c)","> PCIe x8 bandwidth profiling: ~8-12 GB/s practical, NVMe optimal K=4 parallel reads"]},
+  {name:"MOE KV ROUTING", sub:"Sparse Attention Dashboard (262K tokens)", stack:"React · WebSocket · Node.js", year:"2026",
+   desc:["> Extends BREAD v2 with sparse KV cache routing layer","> Predict which KV blocks each attention head accesses, materialize selectively","> 8-10x KV bandwidth compression at 262k context window","> Real-time React dashboard: per-head routing decisions, recall heatmaps (predicted vs actual)","> Live bandwidth savings visualization, quality/throughput trade-off curves (K=4,8,16,32)","> Automatic fallback to dense Circular KV if accuracy drops beyond threshold"]},
+  {name:"GLOVERXR", sub:"Wearable IMU-based Hand Motion Capture", stack:"Embedded C · Java · Sensor Fusion", year:"2025",
+   desc:["> Multiple LSM6DSO32 6-DoF IMUs (accel + gyro) on each finger joint","> Custom Mahony-style sensor fusion algorithm for real-time joint angle estimation","> Kinematic chain math to propagate finger pose from wrist reference frame","> Optical-field-free & magnetic-field-free (works near robot actuators/motors unlike mocap)","> Java Processing live 3D skeletal visualization with per-joint angle display","> Joint bounds as drift correction mechanism; bio-inspired range-of-motion constraints"]},
+  {name:"ATELIER", sub:"High-Performance Terminal Browser (Rust)", stack:"Rust · Ratatui · Tokio · Chromium", year:"2026",
+   desc:["> ~361 LOC: headless Chrome captures PNG → downscale to terminal grid → Ratatui render","> Sixel graphics encoding pipeline (img2sixel) + 256-color ANSI ASCII art fallback for older terminals","> Async HTTP backend + trait-based architecture for backend swapping (simple HTTP vs headless browser)","> Alt-screen terminal handling, 100ms non-blocking event loop, YouTube detection module","> Future: mpv playback integration for video in terminal, layout preservation across render passes"]},
+  {name:"RAILWAY INSPECTION", sub:"Smart Track Monitoring (SIH 2025)", stack:"Embedded C · Custom Hardware · IoT", year:"2026",
+   desc:["> Smart India Hackathon 2025 Hardware PS 25020: eliminate need for dedicated track inspection trains","> Modular clip-on IMU units attach to operational trains for continuous monitoring","> Passive vibration detection (FFT/Welch on-device), anomaly classification for defects vs normal wear","> KAVACH RFID integration for GPS-independent geo-tagging in tunnels; 5G real-time alerting to control centers","> TM/IM/448-compliant data acquisition + Gati Shakti infrastructure mapping ready","> 70% CAPEX, 67% OPEX reduction vs traditional Track Recording Cars; nationwide deployment viable"]},
+  {name:"KP17 HUMANOID", sub:"17-DOF Bipedal Humanoid Robot", stack:"C++ · SolidWorks · RoboCup", year:"2025",
+   desc:["> Co-founded Team Genesis with 16 members; KP17 is flagship platform","> 17-DOF architecture: 6 per leg + 1 waist + 2 per arm + 2 neck (biped stability optimized)","> Pod-based distributed control: modular hardware units communicate via I2C/CAN; full onboard computation (no tethers)","> Integrated GloveXR for teleoperation + sensor feedback; IMU-based balance correction","> SolidWorks CAD design with weight optimization; RoboCup humanoid framework compliance","> Kinematics verified in simulation; hardware integration ongoing (joints, motors, power management)"]},
+];
+const SECTIONS = ["TITLE","ABOUT","EXPERIENCE","PROJECTS","SKILLS","CONTACT"];
+
+/* ==================== AUDIO ==================== */
+let audioCtx = null;
+function beep(freq=523, dur=0.12, type="sine", vol=0.06, when=0){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    const t = audioCtx.currentTime + when;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type=type;o.frequency.setValueAtTime(freq,t);
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(vol,t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(t);o.stop(t+dur+0.02);
+  }catch(e){}
+}
+function bootChime(){ if(prefs.chime==="off") return; beep(523,0.18,"sine",0.07,0); beep(659,0.24,"sine",0.07,0.15); }
+
+/* ==================== RENDER SECTIONS ==================== */
+function render(){
+  const s = document.getElementById("screen");
+  s.innerHTML = "";
+  const pg = `<span class="pg">${state.section+1}/${SECTIONS.length}</span>`;
+  if(state.section===0){
+    s.innerHTML = `
+      <div class="title-screen">
+        <div class="corner tl">◤</div><div class="corner tr">◥</div>
+        <div class="corner bl">◣</div><div class="corner br">◢</div>
+        <div class="hearts"><span>♥</span><span>♥</span><span>♥</span><span class="dim">♥</span></div>
+        <div class="ts-name slow-blink">ABDUR</div>
+        <div class="ts-sub">◆ MECHATRONICS & AUTOMATION ◆</div>
+        <div id="avatar" style="margin:14px auto 4px"></div>
+        <div class="ts-coin">× VIT CHENNAI</div>
+        <div class="blink ts-press">▸ PRESS A TO START ◂</div>
+        <div class="ts-foot">◁ ▷ CHANGE PAGE · ⚙ SETTINGS</div>
+      </div>`;
+    drawAvatar(document.getElementById("avatar"), true, 4);
+    return;
+  }
+  if(state.section===1){
+    s.innerHTML = `
+      <div class="section-title">◆ ABOUT ${pg}</div>
+      <div class="about-grid">
+        <div class="about-portrait">
+          <div id="avatar2"></div>
+          <div class="portrait-tag">RANK 4</div>
+        </div>
+        <div class="lcd-text about-stats">
+          <div class="k">NAME</div><div class="v">ABDUR RAHEEM IMAMI</div>
+          <div class="k">STUDY</div><div class="v">MECHATRONICS &amp; AUTOMATION</div>
+          <div class="k">YEAR</div><div class="v">2/4 (SEM 4)</div>
+          <div class="k">CGPA</div><div class="v">8.82</div>
+        </div>
+      </div>
+      <div class="about-bio" style="font-size:11px;margin-top:6px;">◆ VIT CHENNAI (2024–2028)<br/>B.Tech Mechatronics &<br/>Automation Eng (Year 2)<br/>CGPA 8.82 | Rank 4<br/>Sem 1 GPA: 9.56<br/><br/>&gt; CUDA INFERENCE ENGINES<br/>&gt; HUMANOID ROBOTICS<br/>&gt; EMBEDDED FIRMWARE &<br/>&gt; SENSOR FUSION SYSTEMS<br/><span class="cursor"></span></div>
+      <div class="chip-row" style="margin-top:6px;">
+        <span class="chip">CUDA</span><span class="chip">RUST</span><span class="chip">ROBOTICS</span><span class="chip">EMBEDDED</span><span class="chip">C++</span>
+      </div>
+      <div class="resume-box" id="resumeBox" style="cursor:pointer;margin-top:8px;">
+        <div class="rb-label">▼ RESUME</div>
+        <div class="rb-press blink">[A] DOWNLOAD</div>
+      </div>`;
+    drawAvatar(document.getElementById("avatar2"), false, 4);
+    document.getElementById("resumeBox").addEventListener("click", downloadResumePDF);
+    return;
+  }
+  if(state.section===2){
+    s.innerHTML = `<div class="section-title">◆ EXPERIENCE ${pg}</div>
+      <div class="exp-list" id="expList"></div>`;
+    const exps = [
+      {title:"Co-Founder & CTO", org:"Sentrix Robotics", dates:"2025–Now", details:["V-NEST Incubated (26th startup)","DPIIT Recognized startup","Own complete tech roadmap","Represented at Google AI Day 2025"]},
+      {title:"Co-Founder & Head of Operations", org:"Team Genesis (16th STT)", dates:"2025–Now", details:["VIT's humanoid robotics team","Directing KP17 development","GloveXR teleoperation program","Market-Based Mgmt model"]},
+      {title:"Management Member", org:"IEEE CompSoc VIT", dates:"Jul 2025–Now", details:["Event planning & initiatives","BuildersHut hackathon org","Community tech programming"]}
+    ];
+    const el = document.getElementById("expList");
+    exps.forEach((e,i)=>{
+      const row = document.createElement("div");
+      row.style.cssText = "margin-bottom:12px;padding:6px;border-left:2px solid var(--lcd-3);padding-left:8px;";
+      row.innerHTML = `<div style="font-weight:700;color:var(--lcd-3);font-size:12px;font-family:ui-monospace,monospace;">${e.title}</div><div style="color:var(--lcd-2);font-size:10px;font-family:ui-monospace,monospace;">${e.org} · ${e.dates}</div><div style="font-size:10px;color:var(--lcd-3);margin-top:4px;font-family:ui-monospace,monospace;">${e.details.map(d=>"• "+d).join("<br/>")}</div>`;
+      el.appendChild(row);
+    });
+    return;
+  }
+  if(state.section===4){
+    const stats = [["CUDA",92],["C/C++",88],["RUST",85],["PYTHON",90],["ROBOTICS",88],["EMBEDDED",86]];
+    s.innerHTML = `<div class="section-title">◆ SKILLS ${pg}</div>
+      <div class="stats-wrap" id="stats"></div>
+      <div class="skill-foot">▲ TOTAL LVL ${stats.reduce((a,[,v])=>a+v,0)} / ${stats.length*100}</div>
+      <div style="margin-top:12px;font-size:10px;color:var(--lcd-2);line-height:1.4;">
+        <div><strong>SYSTEMS:</strong> CUDA • MoE Arch • GPU Prog • Quantization • Tiered Memory</div>
+        <div style="margin-top:4px;"><strong>HARDWARE:</strong> ESP32 • IMU/Sensor Fusion • SolidWorks • Embedded C</div>
+        <div style="margin-top:4px;"><strong>ROBOTICS:</strong> Humanoid • Bipedal • Teleoperation • Kinematic Chains</div>
+        <div style="margin-top:4px;"><strong>TOOLS:</strong> Git • CMake • Windows</div>
+      </div>`;
+    const sb = document.getElementById("stats");
+    stats.forEach(([n,v])=>{
+      let bars="";
+      for(let i=0;i<12;i++) bars += `<i class="${i < Math.round(v/100*12 * state.statsAnim) ? 'on':''}"></i>`;
+      const shown = Math.round(v*state.statsAnim);
+      sb.innerHTML += `<div class="stat"><span class="name">${n}</span><span class="bar">${bars}</span><span class="val">${shown}</span></div>`;
+    });
+    if(state.statsAnim < 1){
+      const step = ()=>{
+        state.statsAnim = Math.min(1, state.statsAnim + 0.08);
+        render();
+        if(state.statsAnim<1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+    return;
+  }
+  if(state.section===3){
+    if(state.projectDetail>=0){
+      const p = PROJECTS[state.projectDetail];
+      const details = [
+        {name:"BREAD v2", full:`<div style="color:var(--lcd-2);margin-bottom:6px;">◆ WHAT IT IS</div>
+A from-scratch CUDA inference engine for Mixture-of-Experts transformer models on Windows — porting danveloper's flash-moe (C/Metal, macOS-only) to CUDA with full Windows support. Target model: Qwen3.5-35B-A3B, a 35-billion-parameter sparse MoE, running coherently on a consumer RTX 4060 with only 8GB VRAM.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ WEIGHT STREAMING PIPELINE</div>
+Engineered a 3-tier weight hierarchy: active expert weights live in VRAM → evicted to pinned host RAM → cold weights on NVMe SSD. An 18-slot LRU expert cache decides eviction policy. Async cudaMemcpyAsync prefetching pipelines the next expert load behind the current forward pass to hide transfer latency.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ QUANTIZATION & PARSING</div>
+Custom GGUF file parser (no llama.cpp dependency). CPU-side dequantization for Q4_K and Q6_K formats; output verified byte-identical vs. ggml-quants.c reference. CUDA kernels handle expert dispatch and matmul on dequantized weights.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ BANDWIDTH ANALYSIS</div>
+Profiled PCIe x8 practical ceiling: ~8–12 GB/s sustained. NVMe parallel read experiments showed K=4 concurrent workers optimal before diminishing returns. Concluded runtime expert pre-prediction has higher scheduling impact than blob format optimizations.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ STATUS</div>
+Inference loop running end-to-end. Currently debugging an embedding read mismatch that produces incoherent token output — byte-level comparison against reference shows divergence in the embedding lookup stage. First from-scratch CUDA MoE engine targeting Windows consumer hardware.`},
+
+        {name:"MOE KV ROUTING", full:`<div style="color:var(--lcd-2);margin-bottom:6px;">◆ WHAT IT IS</div>
+An extension to BREAD v2 that adds a sparse KV cache routing layer — instead of materializing the full KV cache for 262k tokens, it predicts which KV blocks each attention head will actually access and selectively loads only those blocks from SSD → RAM → VRAM. Target: 8–10x KV bandwidth compression at 262k context length.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ THE ROUTING PROBLEM</div>
+At 262k tokens, a dense KV cache for a large model is enormous — far beyond VRAM capacity. Sparse attention patterns mean most heads only attend to a small fraction of past tokens. The router learns which KV blocks are relevant per head per layer and pre-fetches only those, discarding the rest.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ DASHBOARD</div>
+Real-time React + WebSocket visualization dashboard exposing: per-head routing decisions (which blocks were fetched), routing recall heatmaps (predicted blocks vs. actual attention mass post-softmax), live bandwidth savings graph (dense vs. routed MB/s), and quality/throughput trade-off curves across K values (K=4, 8, 16, 32 blocks per head).
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ VALIDATION & FALLBACK</div>
+Dashboard is the primary validation instrument — recall visible in-flight means router misprediction is caught immediately. Automatic fallback to dense Circular KV if recall drops below accuracy threshold, ensuring output quality never degrades silently.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ SIGNIFICANCE</div>
+First-of-its-kind real-time visualization for MoE sparse KV routing during live inference. Node.js telemetry backend hooks directly into the CUDA loop.`},
+
+        {name:"GLOVERXR", full:`<div style="color:var(--lcd-2);margin-bottom:6px;">◆ WHAT IT IS</div>
+A wearable hand motion capture system using multiple LSM6DSO32 6-DoF IMUs (3-axis accelerometer + 3-axis gyroscope) mounted on each finger joint. Entirely optical-field-free and magnetic-field-free — unlike conventional mocap systems (OptiTrack, Vive Trackers), it functions in any environment including near robot actuators and motors where magnetic fields cause conventional tracking to fail.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ SENSOR FUSION</div>
+Custom Mahony-style attitude estimation filter fuses accelerometer and gyroscope data per IMU into a quaternion orientation. Kinematic chain mathematics propagate each finger segment's pose relative to the wrist reference frame, producing per-finger joint angles in real time with low drift.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ DRIFT CORRECTION</div>
+Joint angle bounds act as a passive drift correction mechanism — anatomically impossible poses are rejected and corrected, preventing accumulated gyroscope integration error from diverging. Bio-inspired range-of-motion constraints modeled on human hand anatomy.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ VISUALIZATION</div>
+Java Processing renders a live 3D skeletal hand model with per-joint angle feedback display. Used for development verification and teleoperation operator training.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ APPLICATION</div>
+Primary use case: teleoperation input device for the KP17 humanoid robot. Zero field dependencies unlock use in electromagnetically noisy industrial environments where magnetic mocap completely fails.`},
+
+        {name:"ATELIER", full:`<div style="color:var(--lcd-2);margin-bottom:6px;">◆ WHAT IT IS</div>
+A high-performance terminal browser written in ~361 lines of Rust. The core idea: instead of re-implementing a browser engine in the terminal, use headless Chrome to do all the real rendering (full CSS, JavaScript, layout) and only handle the display side in Rust.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ RENDER PIPELINE</div>
+Headless Chrome captures a full-resolution PNG of the page → downscale to terminal grid dimensions (columns × rows in character cells) → encode as sixel graphics data → Ratatui renders to the terminal TUI. The browser does the hard work; Atelier converts the output.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ GRAPHICS BACKENDS</div>
+Primary path: sixel graphics detection + img2sixel encoding for terminals with sixel support (WezTerm, mlterm, some iTerm2 builds). Fallback: 256-color ANSI ASCII art rendering for terminals without sixel — every terminal works, quality degrades gracefully.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ ARCHITECTURE</div>
+Trait-based backend design: the display layer is completely decoupled from the source — hot-swap between simple HTTP fetch backend and full headless browser backend without changing any display code. Async Tokio event loop with 100ms non-blocking poll. Alt-screen terminal handling (enter/exit cleanly).
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ EXTRAS</div>
+YouTube URL detection module (regex-based) for planned future mpv playback integration — watch videos from within the terminal. Release binary: ~8MB. 2/2 unit tests passing (layout preservation, render correctness).`},
+
+        {name:"RAILWAY INSPECTION", full:`<div style="color:var(--lcd-2);margin-bottom:6px;">◆ WHAT IT IS</div>
+Smart India Hackathon 2025 (Hardware PS 25020): clip-on IMU-based monitoring units that magnetically attach to operational trains for continuous railway track and infrastructure inspection — eliminating the need for dedicated Track Recording Cars (TRCs) entirely.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ THE PROBLEM</div>
+India's railway network relies on expensive imported Track Recording Cars for periodic inspection — high CAPEX, low coverage frequency, and unable to monitor all routes continuously. Our system turns every operational train into a monitoring node.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ SENSING & DETECTION</div>
+Passive IMU-based vibration sensing — no active emission, no external infrastructure needed. On-device FFT and Welch power spectral density computation classifies detected vibrations as track defects vs. normal wear in real time, at the edge. No cloud dependency for detection.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ LOCALIZATION</div>
+KAVACH RFID integration for GPS-independent geo-tagging — critical for tunnel sections where satellite signal is unavailable. 5G real-time alerting pushes anomaly reports with location tags to control centers immediately.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ COMPLIANCE & IMPACT</div>
+TM/IM/448-compliant data acquisition. Gati Shakti national infrastructure mapping ready. Route-coverage algorithm maximizes network-wide inspection with minimum units deployed. Performance: 70% CAPEX reduction, 67% OPEX reduction vs. traditional TRCs. Representing VIT Chennai at SIH 2025 nationals.`},
+
+        {name:"KP17 HUMANOID", full:`<div style="color:var(--lcd-2);margin-bottom:6px;">◆ WHAT IT IS</div>
+KP17 is the flagship humanoid robot of Team Genesis — VIT Chennai's first dedicated humanoid robotics Special Technical Team (16th STT on campus), co-founded and grew from 0 to 16 members within 1 year. KP17 is a 17-DOF bipedal humanoid targeting RoboCup Humanoid League competition.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ DOF BREAKDOWN</div>
+17 degrees of freedom total: 6 per leg (hip roll, hip pitch, hip yaw, knee pitch, ankle pitch, ankle roll) + 1 waist pitch + 2 per arm (shoulder + elbow) + 2 neck (pan + tilt). Layout optimized for bipedal walking stability and upper-body manipulation tasks.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ CONTROL ARCHITECTURE</div>
+Pod-based distributed control: the robot is divided into functional pods (leg, arm, torso) each with a local controller communicating over I2C/CAN bus. Full onboard computation — no tethers, no external PC dependency during operation. Each pod is independently debuggable.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ TELEOPERATION</div>
+Tightly integrated with GloveXR for operator teleoperation — wrist and finger pose from the glove maps to KP17 arm/hand joints in real time. IMU-based balance correction provides haptic-equivalent feedback loop to the operator.
+
+<div style="color:var(--lcd-2);margin:8px 0 4px;">◆ HARDWARE & STATUS</div>
+Complete SolidWorks CAD with weight optimization for bipedal equilibrium. Actuators: DYNAMIXEL servo motors. Kinematics verified in PyBullet simulation. Real-world bipedal gait tuning currently in progress. Target: RoboCup Humanoid League participation.`}
+      ];
+      const detail = details[state.projectDetail];
+      s.innerHTML = `<div class="section-title">◆ PROJECT ${state.projectDetail+1}/${PROJECTS.length}</div>
+        <div class="project-detail" style="display:flex;flex-direction:column;overflow:hidden;height:calc(100% - 28px);">
+          <div class="pd-badge">#${String(state.projectDetail+1).padStart(2,"0")}</div>
+          <div class="pd-name">${p.name}</div>
+          <div class="pd-sub">${p.sub}</div>
+          <div class="pd-sub" style="color:var(--lcd-2);font-size:9px;margin-top:2px;">${p.year} · ${p.stack}</div>
+          <div class="pd-bar" style="margin-top:4px;"></div>
+          <div style="flex:1;overflow:hidden;position:relative;margin-top:4px;">
+            <div id="pd-scroll-body" style="transform:translateY(${-state.pdScrollY}px);transition:transform 80ms;">
+              <div class="pd-desc" style="font-size:10px;line-height:1.5;">${detail.full}</div>
+            </div>
+          </div>
+          <div class="pd-bar" style="margin-top:4px;"></div>
+          <div class="pd-foot">[↑↓] SCROLL  ·  [B] BACK</div>
+        </div>`;
+      return;
+    }
+    s.innerHTML = `<div class="section-title">◆ PROJECTS ${pg}</div>
+      <div id="plist" class="proj-list"></div>
+      <div class="proj-foot">▲▼ SELECT  ·  [A] OPEN</div>`;
+    const pl = document.getElementById("plist");
+    PROJECTS.forEach((p,i)=>{
+      const row = document.createElement("div");
+      row.className = "project-row" + (i===state.projectIdx?" sel":"");
+      row.innerHTML = `<span class="ptr">${i===state.projectIdx?'▶':' '}</span><span class="pn">${String(i+1).padStart(2,"0")}</span><span class="pname">${p.name}</span><span class="pyear">${p.year}</span>`;
+      pl.appendChild(row);
+    });
+    return;
+  }
+  if(state.section===5){
+    s.innerHTML = `<div class="section-title">◆ CONTACT ${pg}</div>
+      <div class="contact-list">
+        <div class="c-row" id="github-row" style="cursor:pointer;"><span class="c-icon">◆</span><span class="c-label">GITHUB</span><span class="c-val">arahe-dev</span></div>
+        <div class="c-row" id="linkedin-row" style="cursor:pointer;"><span class="c-icon">●</span><span class="c-label">LINKEDIN</span><span class="c-val">arahe</span></div>
+        <div class="c-row" style="cursor:default;"><span class="c-icon">◈</span><span class="c-label">COLLEGE</span><span class="c-val">VIT CHENNAI</span></div>
+      </div>
+      <div class="resume-box" id="linkedin-btn" style="cursor:pointer;margin-top:10px;border-style:solid;">
+        <div class="rb-label">◆ GET IN TOUCH</div>
+        <div class="rb-press blink">[A] OPEN LINKEDIN</div>
+      </div>
+      <div class="coin-strip">◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆</div>`;
+    document.getElementById("linkedin-btn").addEventListener("click", ()=>{ window.open("https://linkedin.com/in/arahe","_blank"); beep(880,0.06,"square",0.06); });
+    document.getElementById("linkedin-row").addEventListener("click", ()=>{ window.open("https://linkedin.com/in/arahe","_blank"); beep(880,0.06,"square",0.06); });
+    document.getElementById("github-row").addEventListener("click", ()=>{ window.open("https://github.com/arahe-dev","_blank"); beep(880,0.06,"square",0.06); });
+    return;
+  }
+}
+
+function drawAvatar(el, walking=false, scale=2){
+  if(!el) return;
+  // Classic 8-bit alien invader — 11x8 sprite, 2 frames for walk
+  const W = 11, H = 8;
+  const px = scale;
+  const d3 = "var(--lcd-3)";
+  const frames = [
+    [
+      "...#.....#.",
+      "....#...#..",
+      "...#######.",
+      "..##.###.##",
+      ".#########.",
+      ".#.#####.#.",
+      ".#.#...#.#.",
+      "....##.##..",
+    ],
+    [
+      "...#.....#.",
+      "#...#...#..",
+      "#..#######.",
+      "#.##.###.##",
+      "##########.",
+      ".#.#####.#.",
+      "..#.....#..",
+      ".#.......#.",
+    ],
+  ];
+  function framePx(frame){
+    return frame.map(r=>r.padEnd(W,".").slice(0,W));
+  }
+  function shadowsFor(frame){
+    const rows = framePx(frame);
+    const out = [];
+    for(let y=0;y<H;y++){
+      for(let x=0;x<W;x++){
+        if(rows[y][x]==="#"){
+          out.push(`${x*px}px ${y*px}px 0 ${d3}`);
+        }
+      }
+    }
+    return out.join(",");
+  }
+  el.style.cssText = `position:relative;width:${W*px}px;height:${H*px}px;margin:0 auto`;
+  el.innerHTML = `<span style="position:absolute;top:0;left:0;width:${px}px;height:${px}px;background:transparent;box-shadow:${shadowsFor(frames[0])}"></span>`;
+  const sp = el.firstChild;
+  if(walking){
+    let f = 0;
+    const swap = ()=>{
+      if(!el.isConnected){return;}
+      f = 1-f;
+      sp.style.boxShadow = shadowsFor(frames[f]);
+    };
+    // swap frames every 420ms (classic arcade cadence)
+    const id = setInterval(swap, 420);
+    // stop if avatar removed
+    const obs = new MutationObserver(()=>{ if(!el.isConnected){ clearInterval(id); obs.disconnect(); } });
+    if(el.parentNode) obs.observe(el.parentNode,{childList:true,subtree:true});
+    // tiny hop
+    sp.animate([{transform:"translateY(0)"},{transform:"translateY(-2px)"},{transform:"translateY(0)"}],{duration:840,iterations:Infinity});
+  }
+}
+
+/* ==================== WIPE ==================== */
+function wipe(){
+  const w = document.getElementById("wipe");
+  w.classList.remove("run");
+  [...w.children].forEach((el,i)=>{ el.style.animationDelay = ((i%10)*10)+"ms"; });
+  void w.offsetWidth;
+  w.classList.add("run");
+}
+
+/* ==================== NAV ==================== */
+function move(dir){
+  if(state.inGame){ return tetris.input(dir); }
+  if(state.section===3 && state.projectDetail<0){
+    if(dir==="up"){ state.projectIdx=(state.projectIdx-1+PROJECTS.length)%PROJECTS.length; beep(700,0.04,"square",0.04); render(); return;}
+    if(dir==="down"){ state.projectIdx=(state.projectIdx+1)%PROJECTS.length; beep(700,0.04,"square",0.04); render(); return;}
+  }
+  if(state.section===3 && state.projectDetail>=0){
+    if(dir==="up"){ state.pdScrollY=Math.max(0,state.pdScrollY-18); const b=document.getElementById("pd-scroll-body"); if(b) b.style.transform=`translateY(${-state.pdScrollY}px)`; beep(600,0.02,"square",0.02); return; }
+    if(dir==="down"){ state.pdScrollY+=18; const b=document.getElementById("pd-scroll-body"); if(b) b.style.transform=`translateY(${-state.pdScrollY}px)`; beep(600,0.02,"square",0.02); return; }
+  }
+  if(dir==="left" || dir==="right"){
+    wipe();
+    setTimeout(()=>{
+      if(dir==="left") state.section = (state.section-1+SECTIONS.length)%SECTIONS.length;
+      else state.section = (state.section+1)%SECTIONS.length;
+      state.projectDetail = -1;
+      if(state.section===2) state.statsAnim=0;
+      render();
+    },100);
+    beep(440,0.05,"square",0.05);
+  }
+}
+function pressA(){
+  if(state.inGame) return tetris.input("a");
+  if(state.section===3 && state.projectDetail<0){ state.projectDetail=state.projectIdx; state.pdScrollY=0; beep(880,0.06,"square",0.06); render(); return; }
+  if(state.section===5){
+    window.open("https://linkedin.com/in/arahe","_blank"); beep(880,0.06,"square",0.06);
+    return;
+  }
+  if(state.section===1){ downloadResumePDF(); return; }
+  if(state.section===0){ state.section=1; state.projectDetail=-1; wipe(); setTimeout(render,100); beep(880,0.08,"square",0.06); return; }
+  beep(880,0.06,"square",0.06);
+}
+
+function downloadResumePDF(){
+  const resumeHTML = `
+    <div style="font-family:Arial,sans-serif;padding:40px;line-height:1.5;color:#333;font-size:11px;word-wrap:break-word;overflow-wrap:break-word;">
+    <style>ul{page-break-inside:avoid} p+ul{page-break-inside:avoid} .proj-block{page-break-inside:avoid}</style>
+      <h1 style="text-align:center;margin:0 0 4px;font-size:26px;">ABDUR RAHEEM IMAMI</h1>
+      <p style="text-align:center;margin:0 0 20px;color:#666;font-size:10px;">Mechatronics & Automation (2024–2028) • Year 2, Sem 4 • VIT Chennai</p>
+      <p style="text-align:center;margin:0 0 20px;color:#666;font-size:10px;">CGPA 8.82 | Dept. Rank 4 (AY 2024–25) | Sem 1 GPA: 9.56</p>
+
+      <h2 style="border-bottom:2px solid #333;padding-bottom:6px;font-size:13px;margin:18px 0 10px;">SUMMARY</h2>
+      <p style="margin:0 0 10px;">Mechatronics undergraduate (CGPA 8.82, Dept. Rank 4) and co-founder of DPIIT-recognized robotics startup. Builds complete systems: from-scratch CUDA inference engines (MoE architecture for 35B parameter models), humanoid robots (17-DOF bipedal with distributed control), embedded firmware & sensor fusion. Currently leading V-NEST incubated Sentrix Robotics (26th startup) and co-founded Team Genesis—VIT's humanoid robotics team (16th STT on campus, 1 year old).</p>
+
+      <h2 style="border-bottom:2px solid #333;padding-bottom:6px;font-size:13px;margin:15px 0 10px;">EDUCATION</h2>
+      <p style="margin:0 0 4px;"><strong>VIT Chennai</strong> (2024–2028)</p>
+      <p style="margin:0 0 8px;"><strong>B.Tech in Mechatronics and Automation Engineering</strong><br/>CGPA 8.82 | Dept. Rank 4 (AY 2024–25) | Sem 1 GPA: 9.56 | Year 2, Semester 4<br/>Coursework: Embedded Systems, Control Systems, Machine Learning, DSP, Robotics</p>
+      <p style="margin:0 0 4px;"><strong>NMS-DPS Bahrain</strong> (2022) — CBSE Grade 12 · 91.6%</p>
+
+      <h2 style="border-bottom:2px solid #333;padding-bottom:6px;font-size:13px;margin:15px 0 10px;">EXPERIENCE</h2>
+      <p style="margin:0 0 6px;"><strong>Co-Founder & CTO — Sentrix Robotics Pvt. Ltd.</strong> (2025–Present)</p>
+      <ul style="margin:4px 0 8px;padding-left:20px;"><li>V-NEST Incubated startup (26th company admitted to program), DPIIT Recognized</li><li>Own complete technical roadmap: hardware architecture, firmware stack, software infrastructure across all active product lines</li><li>Represented Sentrix at Google AI Day for Startups 2025 (IITM Research Park) and SolidWorks Startup Summit (StartupTN, IIT Madras)</li><li>Shortlisted for EUREKA! Zonals (E-Cell IIT Bombay), APF, Campus Fund, and Yukti acceleration programs</li><li>Speaker at IEEECS BuildersHut—shared technical founding experience with student engineering audience</li></ul>
+
+      <p style="margin:0 0 6px;"><strong>Co-Founder & Head of Operations — Team Genesis</strong> (2025–Present)</p>
+      <ul style="margin:4px 0 8px;padding-left:20px;"><li>Co-founded VIT Chennai's first dedicated humanoid robotics team; grew to 16th STT on campus within 1 year of founding</li><li>Directing KP17 development: 17-DOF bipedal humanoid with pod-based distributed control architecture, full onboard computation</li><li>Leading GloveXR teleoperation glove program—IMU-based hand motion capture (optical/magnetic-field-free)</li><li>Designed and implemented hierarchical management sub-stack modeled on Market-Based Management (MBM) principles</li><li>Restructured internal accountability and decision-making frameworks across 16-person team</li></ul>
+
+      <p style="margin:0 0 6px;"><strong>Management Member — IEEE Computer Society, VIT Chennai</strong> (Jul 2025–Present)</p>
+      <ul style="margin:4px 0 8px;padding-left:20px;"><li>Core organizational member; contributed to event planning, community initiatives, technical programming</li><li>Key organizer for BuildersHut hardware hackathon; promoted embedded systems education on campus</li></ul>
+
+      <h2 style="border-bottom:2px solid #333;padding-bottom:6px;font-size:13px;margin:15px 0 10px;">PROJECTS (6 TOTAL)</h2>
+      <p style="margin:0 0 6px;"><strong>BREAD v2 — Custom CUDA MoE Inference Engine</strong> (2026–Present)</p>
+      <ul style="margin:4px 0 8px;padding-left:20px;"><li>From-scratch CUDA port of danveloper's flash-moe (originally macOS/Metal only) to Windows/CUDA. Target: run Qwen3.5-35B-A3B (35B params) on RTX 4060 (8GB VRAM)</li><li>3-tier weight streaming: VRAM → pinned RAM → NVMe SSD with 18-slot LRU expert cache</li><li>Custom GGUF parser, CPU dequantization (Q4_K/Q6_K verified vs. ggml-quants.c), async cudaMemcpyAsync prefetch</li><li>PCIe x8 bandwidth profiling (~8-12 GB/s practical); NVMe optimal parallel reads (K=4)</li></ul>
+
+      <p style="margin:0 0 6px;"><strong>MoE KV Routing — Sparse Attention Dashboard</strong> (2026–Present)</p>
+      <ul style="margin:4px 0 8px;padding-left:20px;"><li>Real-time React + WebSocket dashboard: sparse KV cache routing layer for 262k token context</li><li>Per-head routing decisions, recall heatmaps vs. actual attention mass, bandwidth savings visualization</li><li>Targets 8-10x KV bandwidth compression; automatic fallback to dense Circular KV on accuracy drop</li></ul>
+
+      <p style="margin:0 0 6px;"><strong>GloveXR — Wearable IMU Motion Capture Glove</strong> (2025–Present)</p>
+      <ul style="margin:4px 0 8px;padding-left:20px;"><li>Wearable hand motion capture using multiple LSM6DSO32 6-DoF IMUs (accel + gyro)</li><li>Custom Mahony-style sensor fusion + kinematic chain math for per-finger joint angle estimation</li><li>Optical-field-free and magnetic-field-free design (works near robot actuators/motors)</li><li>Java Processing live 3D skeletal visualization; joint bounds as drift correction mechanism</li></ul>
+
+      <p style="margin:0 0 6px;"><strong>Atelier — Terminal Browser (Rust)</strong> (2025)</p>
+      <ul style="margin:4px 0 8px;padding-left:20px;"><li>~361 LOC Rust: Headless Chrome captures PNG → downscale to terminal → Ratatui display</li><li>Sixel graphics + 256-color ANSI ASCII art fallback; trait-based backend swapping (HTTP/headless)</li><li>Async Tokio event loop (100ms non-blocking poll), YouTube detection module for future mpv integration</li></ul>
+
+      <p style="margin:0 0 6px;"><strong>Railway Infrastructure Inspection Hardware — SIH 2025</strong> (2025)</p>
+      <ul style="margin:4px 0 8px;padding-left:20px;"><li>Smart India Hackathon 2025 (Hardware PS 25020): Clip-on units for operational train monitoring</li><li>Passive IMU vibration detection, on-board FFT/Welch edge processing</li><li>KAVACH RFID integration for geo-tagging in tunnels, 5G real-time alerting</li><li>70% CAPEX, 67% OPEX reduction vs. Track Recording Cars; TM/IM/448 + Gati Shakti compliance</li></ul>
+
+      <p style="margin:0 0 6px;"><strong>KP17 — 17-DOF Bipedal Humanoid Robot</strong> (2024–Present)</p>
+      <ul style="margin:4px 0 8px;padding-left:20px;"><li>Pod-based distributed control architecture with full onboard computation</li><li>RoboCup framework, SolidWorks CAD design, kinematic chain optimization</li><li>Integration with GloveXR for teleoperation and sensor feedback systems</li></ul>
+
+      <h2 style="border-bottom:2px solid #333;padding-bottom:6px;font-size:13px;margin:15px 0 10px;">TECHNICAL SKILLS</h2>
+      <p style="margin:0;"><strong>Systems & Inference:</strong> CUDA · GPU Programming · MoE Architecture · GGUF · Q4_K/Q6_K Quantization · llama.cpp · Speculative Decoding · Tiered Memory · Inference Optimization</p>
+      <p style="margin:6px 0;"><strong>Languages:</strong> C/C++ · Rust · Python · Embedded C · Java · CUDA C++</p>
+      <p style="margin:6px 0;"><strong>Embedded & Hardware:</strong> ESP32 · ESP32-C6 · LSM6DSO32 · IMU/Sensor Fusion · SolidWorks · IoT Protocols · OLED/TFT Drivers · Relay Control</p>
+      <p style="margin:6px 0;"><strong>Robotics:</strong> Humanoid Architecture · Bipedal Control · Teleoperation · Kinematic Chains · RoboCup Framework</p>
+      <p style="margin:6px 0;"><strong>Frontend & Visualization:</strong> React · Ratatui · HTML/CSS · Sixel Graphics · Real-time Dashboards</p>
+      <p style="margin:6px 0;"><strong>Backend & Tools:</strong> Node.js · WebSocket · UDP · MCP (Model Context Protocol) · Git · MSVC · CMake · Windows</p>
+
+      <h2 style="border-bottom:2px solid #333;padding-bottom:6px;font-size:13px;margin:15px 0 10px;">HONORS & RECOGNITION</h2>
+      <ul style="margin:6px 0;padding-left:20px;"><li><strong>Dept. Rank 4</strong> — Mechatronics & Automation, AY 2024–25, VIT Chennai</li><li><strong>Selected</strong> — Smart India Hackathon 2025, Hardware PS 25020 (representing VIT Chennai)</li><li><strong>Shortlisted</strong> — EUREKA! Zonals, E-Cell IIT Bombay (2025)</li><li><strong>Represented</strong> — Google AI Day for Startups 2025, IITM Research Park</li><li><strong>Finalist</strong> — IEEECS HackHub '25 (4th place)</li><li><strong>Fellow</strong> — CrftHQ (India's largest Build-in-Public founder network)</li><li><strong>Speaker</strong> — IEEECS BuildersHut (technical founding experience)</li></ul>
+    </div>
+  `;
+
+  const opt = {
+    margin: 10,
+    filename: 'Abdur-Raheem-Imami-Resume.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+  };
+
+  html2pdf().set(opt).from(resumeHTML).save();
+  beep(880,0.1,"square",0.06);
+}
+function pressB(){
+  if(state.inGame) return tetris.input("b");
+  if(state.section===3 && state.projectDetail>=0){ state.projectDetail=-1; beep(300,0.06,"square",0.05); render(); return; }
+  beep(300,0.06,"square",0.05);
+}
+function pressStart(){
+  if(state.inGame){ tetris.togglePause(); return; }
+  // Start now shows the settings modal rather than launching the game
+  openSettings();
+}
+function pressSelect(){
+  if(state.inGame) return tetris.input("hold");
+  cyclePalette();
+}
+function cyclePalette(){
+  const order = ["classic","gray","dmg","blue","amber","mono"];
+  const i = (order.indexOf(state.palette)+1)%order.length;
+  state.palette = order[i];
+  prefs.palette = state.palette; savePrefs();
+  applyPalette();
+  beep(660,0.05,"triangle",0.05);
+}
+function applyPalette(){
+  const lcd = document.getElementById("lcdwrap");
+  lcd.classList.remove("pal-gray","pal-dmg","pal-blue","pal-amber","pal-mono");
+  if(state.palette!=="classic") lcd.classList.add("pal-"+state.palette);
+  const sel = document.getElementById("set-pal"); if(sel) sel.value = state.palette;
+}
+
+/* ==================== INPUT ==================== */
+function keyToAction(e){
+  // Normalize
+  const k = e.key;
+  // In-game keybinds first
+  if(state.inGame){
+    if(matchBind(k, binds.left)) return "left";
+    if(matchBind(k, binds.right)) return "right";
+    if(matchBind(k, binds.softDrop)) return "down";
+    if(matchBind(k, binds.hardDrop)) return "up";
+    if(matchBind(k, binds.rotateCW)) return "a";
+    if(matchBind(k, binds.rotateCCW)) return "b";
+    if(matchBind(k, binds.hold)) return "select";
+    if(matchBind(k, binds.pause)) return "start";
+    return null;
+  }
+  // Portfolio binds
+  if(matchBind(k, binds.left)) return "left";
+  if(matchBind(k, binds.right)) return "right";
+  if(matchBind(k, binds.up)) return "up";
+  if(matchBind(k, binds.down)) return "down";
+  if(matchBind(k, binds.a)) return "a";
+  if(matchBind(k, binds.b)) return "b";
+  if(matchBind(k, binds.start)) return "start";
+  if(matchBind(k, binds.select)) return "select";
+  return null;
+}
+function matchBind(k, arr){ return arr && arr.includes(k); }
+
+document.addEventListener("keydown", e=>{
+  // If settings modal open, don't consume
+  if(document.getElementById("settingsModal").classList.contains("on")) return;
+  if(document.getElementById("gameModal").classList.contains("on")){
+    if(e.key==="Escape"){ closeGameModal(); }
+    return;
+  }
+  const action = keyToAction(e);
+  if(!action) return;
+  e.preventDefault();
+  handle(action);
+  const el = document.querySelector(`[data-key="${action}"]`);
+  if(el){ el.classList.add("pressed"); setTimeout(()=>el.classList.remove("pressed"),100); }
+});
+function handle(k){
+  konamiAction(k);
+  if(k==="left"||k==="right"||k==="up"||k==="down") move(k);
+  else if(k==="a") pressA();
+  else if(k==="b") pressB();
+  else if(k==="start") pressStart();
+  else if(k==="select") pressSelect();
+}
+document.querySelectorAll("[data-key]").forEach(el=>{
+  el.addEventListener("click", ()=> handle(el.dataset.key));
+});
+
+/* ==================== KONAMI EASTER EGG ==================== */
+const KONAMI = ["up","up","down","down","left","right","left","right","b","a"];
+let konamiBuf = [];
+function konamiAction(action){
+  konamiBuf.push(action);
+  if(konamiBuf.length > KONAMI.length) konamiBuf = konamiBuf.slice(-KONAMI.length);
+  if(konamiBuf.length === KONAMI.length && KONAMI.every((v,i)=>v===konamiBuf[i])){
+    konamiBuf = [];
+    if(!state.inGame) enterGame();
+  }
+}
+// legacy alias for backward calls (no-op safeguard)
+function konami(){}
+
+/* ==================== BOOT ==================== */
+function boot(){
+  const b = document.getElementById("boot");
+  setTimeout(()=>{ bootChime(); }, 300);
+  setTimeout(()=>{ b.classList.add("hide"); }, 1500);
+  setTimeout(()=>{ b.remove(); render(); }, 1900);
+}
+
+/* ==================== BLOCKFALL ==================== */
+/* LCD is 160x144. HUD on the RIGHT side. Board on LEFT. */
+const tetris = (function(){
+  const COLS=10, ROWS=18, CELL=7; // 10*7=70 wide, 18*7=126 tall — fits 144 with padding
+  const BX = 6, BY = 10;                // board origin
+  const BW = COLS*CELL, BH = ROWS*CELL; // 70 x 126
+  const HUDX = BX + BW + 6;             // HUD starts at 82
+  const HUDW = 160 - HUDX - 4;          // 74 wide HUD column
+
+  const canvas = document.getElementById("tetris");
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+
+  const SHAPES = {
+    I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+    O:[[1,1],[1,1]],
+    T:[[0,1,0],[1,1,1],[0,0,0]],
+    S:[[0,1,1],[1,1,0],[0,0,0]],
+    Z:[[1,1,0],[0,1,1],[0,0,0]],
+    J:[[1,0,0],[1,1,1],[0,0,0]],
+    L:[[0,0,1],[1,1,1],[0,0,0]],
+  };
+  const KEYS = Object.keys(SHAPES);
+  let board, cur, hold, holdUsed, bag, nextQ, score, level, lines, over, paused, lastDrop, flashHold=0, flashMsg=0;
+
+  function col(kind){
+    const cs = getComputedStyle(document.getElementById("lcdwrap"));
+    return cs.getPropertyValue("--lcd-"+kind).trim();
+  }
+
+  function refillBag(){
+    const arr = KEYS.slice();
+    for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+    bag.push(...arr);
+  }
+  function nextPiece(){
+    while(nextQ.length<3){ if(bag.length===0) refillBag(); nextQ.push(bag.shift()); }
+    return nextQ.shift();
+  }
+  function spawn(kind){
+    kind = kind || nextPiece();
+    const shape = SHAPES[kind].map(r=>r.slice());
+    const w = shape[0].length;
+    cur = {kind, shape, x: Math.floor((COLS-w)/2), y: 0};
+    holdUsed = false;
+    if(collides(cur.shape, cur.x, cur.y)) over = true;
+  }
+  function reset(){
+    board = Array.from({length:ROWS},()=>Array(COLS).fill(0));
+    hold = null; holdUsed=false; bag=[]; nextQ=[];
+    score=0; level=+prefs.startLevel||1; lines=0; over=false; paused=false;
+    lastDrop = performance.now();
+    spawn();
+  }
+  function collides(shape, x, y){
+    for(let r=0;r<shape.length;r++) for(let c=0;c<shape[0].length;c++){
+      if(!shape[r][c]) continue;
+      const nx=x+c, ny=y+r;
+      if(nx<0||nx>=COLS||ny>=ROWS) return true;
+      if(ny>=0 && board[ny][nx]) return true;
+    }
+    return false;
+  }
+  function rotate(shape, dir){
+    const N=shape.length;
+    const out = Array.from({length:N},()=>Array(N).fill(0));
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(dir>0) out[c][N-1-r] = shape[r][c];
+      else out[N-1-c][r] = shape[r][c];
+    }
+    return out;
+  }
+  function tryRotate(dir){
+    if(cur.kind==="O") return;
+    const r = rotate(cur.shape,dir);
+    for(const k of [0,-1,1,-2,2]){
+      if(!collides(r, cur.x+k, cur.y)){ cur.shape=r; cur.x+=k; beep(520,0.03,"square",0.03); return; }
+    }
+  }
+  function moveX(dx){ if(!collides(cur.shape, cur.x+dx, cur.y)) cur.x+=dx; }
+  function softDrop(){ if(!collides(cur.shape, cur.x, cur.y+1)){ cur.y++; score+=1; } else lock(); }
+  function hardDrop(){ let d=0; while(!collides(cur.shape, cur.x, cur.y+1)){ cur.y++; d++; } score+=d*2; lock(); }
+  function ghostY(){ let y=cur.y; while(!collides(cur.shape, cur.x, y+1)) y++; return y; }
+  function lock(){
+    for(let r=0;r<cur.shape.length;r++) for(let c=0;c<cur.shape[0].length;c++){
+      if(cur.shape[r][c]){ const ny=cur.y+r, nx=cur.x+c; if(ny<0){over=true;return;} board[ny][nx]=1; }
+    }
+    let cleared=0;
+    for(let r=ROWS-1;r>=0;r--){
+      if(board[r].every(v=>v)){ board.splice(r,1); board.unshift(Array(COLS).fill(0)); cleared++; r++; }
+    }
+    if(cleared){
+      const scores=[0,100,300,500,800];
+      score += scores[cleared]*level;
+      lines += cleared;
+      const newLv = Math.floor(lines/10)+(+prefs.startLevel||1);
+      if(newLv!==level){ level=newLv; beep(660,0.1,"square",0.06); }
+      beep(880,0.08,"square",0.06);
+    } else { beep(220,0.04,"square",0.03); }
+    spawn();
+  }
+  function doHold(){
+    if(holdUsed){ flashHold=20; return; }
+    holdUsed = true;
+    if(hold){ const prev = hold; hold = cur.kind; spawn(prev); }
+    else { hold = cur.kind; spawn(); }
+    beep(500,0.05,"triangle",0.05);
+  }
+  function dropInterval(){ return Math.max(80, 500 - (level-1)*50); }
+
+  /* ---- drawing ---- */
+  function drawText(t,x,y,color,size=6){
+    ctx.fillStyle = color;
+    ctx.font = `${size}px ui-monospace,"Courier New",monospace`;
+    ctx.textBaseline = "top";
+    ctx.fillText(t,x,y);
+  }
+  function fillRect(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(x,y,w,h); }
+
+  function drawPieceAt(shape, col1, cell, px, py, cols){
+    for(let r=0;r<shape.length;r++) for(let c=0;c<shape[0].length;c++){
+      if(shape[r][c]){
+        ctx.fillStyle = col1;
+        ctx.fillRect(px + c*cell, py + r*cell, cell, cell);
+        ctx.fillStyle = cols.dk;
+        ctx.fillRect(px + c*cell + cell-1, py + r*cell + cell-1, 1,1);
+      }
+    }
+  }
+
+  function draw(){
+    const c0 = col("0"), c1 = col("1"), c2 = col("2"), c3 = col("3");
+    // bg
+    fillRect(0,0,160,144,c1);
+
+    // Board frame
+    ctx.fillStyle = c3;
+    ctx.fillRect(BX-1,BY-1,BW+2,1);
+    ctx.fillRect(BX-1,BY+BH,BW+2,1);
+    ctx.fillRect(BX-1,BY-1,1,BH+2);
+    ctx.fillRect(BX+BW,BY-1,1,BH+2);
+
+    // Board background checker for readability
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      if((r+c)%2===0){
+        ctx.fillStyle = c0;
+        ctx.fillRect(BX+c*CELL, BY+r*CELL, 1, 1);
+      }
+    }
+
+    // Locked
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      if(board[r][c]){
+        ctx.fillStyle = c2;
+        ctx.fillRect(BX+c*CELL, BY+r*CELL, CELL, CELL);
+        ctx.fillStyle = c3;
+        ctx.fillRect(BX+c*CELL, BY+r*CELL, CELL, 1);
+        ctx.fillRect(BX+c*CELL, BY+r*CELL, 1, CELL);
+      }
+    }
+
+    if(!over && cur){
+      // ghost
+      if(prefs.ghost!=="off"){
+        const gy = ghostY();
+        for(let r=0;r<cur.shape.length;r++) for(let c=0;c<cur.shape[0].length;c++){
+          if(cur.shape[r][c]){
+            const x=BX+(cur.x+c)*CELL, y=BY+(gy+r)*CELL;
+            ctx.strokeStyle = c2; ctx.lineWidth=1;
+            ctx.strokeRect(x+0.5,y+0.5,CELL-1,CELL-1);
+          }
+        }
+      }
+      // active
+      for(let r=0;r<cur.shape.length;r++) for(let c=0;c<cur.shape[0].length;c++){
+        if(cur.shape[r][c]){
+          const x=BX+(cur.x+c)*CELL, y=BY+(cur.y+r)*CELL;
+          ctx.fillStyle = c3;
+          ctx.fillRect(x,y,CELL,CELL);
+          ctx.fillStyle = c2;
+          ctx.fillRect(x+CELL-1,y+CELL-1,1,1);
+          ctx.fillRect(x+CELL-1,y,1,1);
+          ctx.fillRect(x,y+CELL-1,1,1);
+        }
+      }
+    }
+
+    // HUD — right side
+    let hy = BY;
+    drawText("SCORE", HUDX, hy, c3, 6); hy+=7;
+    drawText(String(score).padStart(6,"0"), HUDX, hy, c3, 7); hy+=10;
+    drawText("LEVEL", HUDX, hy, c3, 6); hy+=7;
+    drawText(String(level).padStart(2,"0"), HUDX, hy, c3, 7); hy+=10;
+    drawText("LINES", HUDX, hy, c3, 6); hy+=7;
+    drawText(String(lines).padStart(3,"0"), HUDX, hy, c3, 7); hy+=10;
+
+    // NEXT box
+    drawText("NEXT", HUDX, hy, c3, 6); hy+=7;
+    const nx = HUDX, ny=hy, nw = HUDW-2, nh = 20;
+    ctx.strokeStyle=c3; ctx.lineWidth=1; ctx.strokeRect(nx+0.5, ny+0.5, nw, nh);
+    if(nextQ[0]){
+      const sh = SHAPES[nextQ[0]];
+      const cell = 3;
+      const pw = sh[0].length*cell, ph = sh.length*cell;
+      drawPieceAt(sh, c3, cell, nx + (nw-pw)/2, ny + (nh-ph)/2, {dk:c2});
+    }
+    hy += nh + 4;
+
+    // HOLD box
+    const holdCol = flashHold>0 ? c2 : c3;
+    drawText(holdUsed?"HOLD*":"HOLD", HUDX, hy, holdCol, 6); hy+=7;
+    const hx=HUDX, hyb=hy, hw=HUDW-2, hh=20;
+    ctx.strokeStyle=holdCol; ctx.strokeRect(hx+0.5, hyb+0.5, hw, hh);
+    if(hold){
+      const sh = SHAPES[hold];
+      const cell = 3;
+      const pw = sh[0].length*cell, ph = sh.length*cell;
+      drawPieceAt(sh, holdCol, cell, hx+(hw-pw)/2, hyb+(hh-ph)/2, {dk:c2});
+    }
+    if(flashHold>0) flashHold--;
+
+    // Help row at bottom of HUD
+    drawText("A:ROT", HUDX, 128, c2, 6);
+    drawText("B:REV", HUDX, 135, c2, 6);
+
+    if(paused){
+      fillRect(BX-1, BY-1, BW+2, BH+2, "rgba(0,0,0,0.45)");
+      drawText("PAUSED", BX+14, BY+BH/2-4, c0, 8);
+      drawText("ESC=RESUME", BX+6, BY+BH/2+6, c0, 6);
+    }
+    if(over){
+      fillRect(BX-1,BY-1,BW+2,BH+2,"rgba(0,0,0,0.55)");
+      drawText("GAME", BX+18, BY+BH/2-14, c0, 10);
+      drawText("OVER", BX+18, BY+BH/2-2, c0, 10);
+      drawText("B:MENU", BX+14, BY+BH/2+14, c0, 7);
+    }
+  }
+
+  /* ---- loop ---- */
+  let raf=null;
+  function step(ts){
+    if(!state.inGame){ raf=null; return; }
+    if(!paused && !over){
+      if(ts - lastDrop > dropInterval()){
+        if(!collides(cur.shape, cur.x, cur.y+1)) cur.y++;
+        else lock();
+        lastDrop = ts;
+      }
+    }
+    draw();
+    raf = requestAnimationFrame(step);
+  }
+
+  return {
+    start(){
+      canvas.style.display="block";
+      reset();
+      lastDrop = performance.now();
+      if(raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(step);
+      draw();
+    },
+    stop(){ canvas.style.display="none"; if(raf){cancelAnimationFrame(raf);raf=null;} },
+    togglePause(){
+      if(over) return;
+      paused=!paused;
+      beep(440,0.05,"square",0.05);
+      if(paused) openGameModal(); else closeGameModal();
+      draw();
+    },
+    setPaused(v){ paused=v; draw(); },
+    input(k){
+      if(over){ if(k==="b"){ exitGame(); } return; }
+      if(paused && k!=="start") return;
+      if(k==="left") moveX(-1);
+      else if(k==="right") moveX(1);
+      else if(k==="down") softDrop();
+      else if(k==="up") hardDrop();
+      else if(k==="a") hardDrop();
+      else if(k==="b") tryRotate(-1);
+      else if(k==="select"||k==="hold") doHold();
+      draw();
+    },
+    // Mouse control helpers: map pixel x to column
+    mouseMoveCol(targetCol){
+      if(paused||over) return;
+      const w = cur.shape[0].length;
+      // shape piece leftmost non-empty column offset
+      let minC = w;
+      for(let r=0;r<cur.shape.length;r++) for(let c=0;c<cur.shape[0].length;c++){
+        if(cur.shape[r][c]) minC = Math.min(minC,c);
+      }
+      // we want piece's leftmost filled col to align near targetCol; use centering
+      let filledMin = w, filledMax = -1;
+      for(let r=0;r<cur.shape.length;r++) for(let c=0;c<cur.shape[0].length;c++){
+        if(cur.shape[r][c]){ filledMin=Math.min(filledMin,c); filledMax=Math.max(filledMax,c); }
+      }
+      const pieceCenter = (filledMin+filledMax)/2;
+      const desiredX = Math.round(targetCol - pieceCenter);
+      // move one step at a time toward desiredX
+      while(cur.x < desiredX){ if(!collides(cur.shape, cur.x+1, cur.y)) cur.x++; else break; }
+      while(cur.x > desiredX){ if(!collides(cur.shape, cur.x-1, cur.y)) cur.x--; else break; }
+      draw();
+    },
+    mouseSoftDrop(){ softDrop(); draw(); },
+    mouseHardDrop(){ hardDrop(); draw(); },
+    mouseRotate(){ tryRotate(1); draw(); },
+    isPaused(){return paused},
+    isOver(){ return over; },
+    cols: COLS,
+    boardPx: {BX,BY,BW,BH,CELL}
+  };
+})();
+
+function enterGame(){
+  if(state.inGame) return;
+  wipe();
+  setTimeout(()=>{
+    state.inGame = true;
+    document.getElementById("screen").style.display="none";
+    tetris.start();
+    beep(880,0.08,"square",0.06);
+    beep(1046,0.1,"square",0.06,0.1);
+  },100);
+}
+function exitGame(){
+  wipe();
+  setTimeout(()=>{
+    state.inGame = false;
+    tetris.stop();
+    const s = document.getElementById("screen");
+    s.style.display="block";
+    render();
+    beep(440,0.08,"square",0.05);
+  },100);
+}
+
+/* ==================== MOUSE CONTROLS ==================== */
+const canvasEl = document.getElementById("tetris");
+function canvasToCol(clientX){
+  const r = canvasEl.getBoundingClientRect();
+  const px = (clientX - r.left) * (160 / r.width); // canvas px
+  const {BX, CELL} = tetris.boardPx;
+  const col = Math.floor((px - BX)/CELL);
+  return col;
+}
+canvasEl.addEventListener("mousemove", e=>{
+  if(!state.inGame || prefs.mouse==="off") return;
+  const col = canvasToCol(e.clientX);
+  if(col<0||col>=tetris.cols) return;
+  tetris.mouseMoveCol(col);
+});
+canvasEl.addEventListener("click", e=>{
+  if(!state.inGame) return;
+  if(prefs.mouse==="off"){ tetris.input("a"); return; }
+  // left click — hard drop
+  tetris.mouseHardDrop();
+});
+canvasEl.addEventListener("contextmenu", e=>{
+  if(!state.inGame) return;
+  e.preventDefault();
+  if(prefs.mouse==="off") return;
+  // right click — rotate
+  tetris.mouseRotate();
+});
+canvasEl.addEventListener("wheel", e=>{
+  if(!state.inGame || prefs.mouse==="off") return;
+  e.preventDefault();
+  if(e.deltaY>0) tetris.mouseSoftDrop();
+  else tetris.mouseRotate();
+},{passive:false});
+
+/* ==================== SETTINGS ==================== */
+const settingsModal = document.getElementById("settingsModal");
+const gameModal = document.getElementById("gameModal");
+
+function openSettings(){ settingsModal.classList.add("on"); renderBinds(document.getElementById("bindList"), "portfolio"); syncSettingsForm(); }
+function closeSettings(){ settingsModal.classList.remove("on"); }
+document.getElementById("gear").addEventListener("click", openSettings);
+document.getElementById("set-close").addEventListener("click", closeSettings);
+document.getElementById("set-reset").addEventListener("click", ()=>{
+  if(!confirm("Reset all settings & keybinds?")) return;
+  prefs = Object.assign({}, TWEAK_DEFAULS);
+  binds = JSON.parse(JSON.stringify(DEFAULT_BINDS));
+  savePrefs(); applyAllPrefs(); renderBinds(document.getElementById("bindList"),"portfolio"); syncSettingsForm();
+});
+
+function savePrefs(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(prefs)); localStorage.setItem(LS_KEY+"-binds", JSON.stringify(binds)); }catch(e){}
+}
+function applyShell(col, btnCol){
+  const shell = document.getElementById("shell");
+  if(col==="transparent"){
+    shell.style.background = "rgba(255,255,255,0.06)";
+    shell.style.backdropFilter = "blur(6px)";
+  } else {
+    shell.style.background = col;
+    shell.style.backdropFilter = "";
+  }
+  if(btnCol){
+    const root = document.documentElement;
+    // derive hi from lightening
+    root.style.setProperty("--btn-red", btnCol);
+    root.style.setProperty("--btn-red-hi", shadeColor(btnCol, 18));
+  }
+  // shell-color aware text colors on brand/labels
+  const dark = isDark(col==="transparent"?"#888":col);
+  document.querySelectorAll(".brand .left, .brand .right, .brand .dot, .brand .line, .ss-labels span").forEach(el=>{
+    el.style.color = dark?"#e8e8e8":"#2a2a2a";
+    if(el.classList.contains("dot")||el.classList.contains("line")) el.style.background = dark?"#e8e8e8":"#2a2a2a";
+  });
+}
+function isDark(hex){
+  if(!hex||hex==="transparent") return false;
+  const m = hex.match(/^#?([a-f0-9]{6})$/i);
+  if(!m) return false;
+  const n = parseInt(m[1],16);
+  const r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+  const lum = (0.299*r+0.587*g+0.114*b);
+  return lum < 100;
+}
+function shadeColor(hex, amt){
+  const m = hex.match(/^#?([a-f0-9]{6})$/i); if(!m) return hex;
+  let n = parseInt(m[1],16);
+  let r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+  r=Math.min(255,r+amt);g=Math.min(255,g+amt);b=Math.min(255,b+amt);
+  return "#"+((r<<16)|(g<<8)|b).toString(16).padStart(6,"0");
+}
+function applyScan(v){
+  const wrap = document.getElementById("lcdwrap");
+  let layer = wrap.querySelector(".scanline-layer");
+  if(!layer){
+    layer = document.createElement("div");
+    layer.className = "scanline-layer";
+    layer.style.cssText = "position:absolute;inset:0;pointer-events:none;z-index:3;mix-blend-mode:multiply;";
+    wrap.appendChild(layer);
+  }
+  if(v<=0){ layer.style.background="transparent"; return; }
+  layer.style.background = `repeating-linear-gradient(to bottom, rgba(0,0,0,${(v/100).toFixed(3)}) 0 1px, transparent 1px 2px)`;
+}
+
+function syncSettingsForm(){
+  document.getElementById("set-pal").value = prefs.palette;
+  document.getElementById("set-shellcustom").value = prefs.shell==="transparent"?"#ffffff":prefs.shell;
+  document.getElementById("set-btn").value = prefs.button;
+  document.getElementById("set-scan").value = prefs.scan;
+  document.getElementById("set-chime").value = prefs.chime;
+  document.querySelectorAll("#set-shell .swatch").forEach(s=>{
+    s.classList.toggle("on", s.dataset.col===prefs.shell);
+  });
+}
+
+function applyAllPrefs(){
+  state.palette = prefs.palette; applyPalette();
+  applyShell(prefs.shell, prefs.button);
+  applyScan(prefs.scan);
+  syncSettingsForm();
+}
+
+/* wire form */
+document.getElementById("set-pal").addEventListener("change",e=>{ prefs.palette=e.target.value; state.palette=prefs.palette; savePrefs(); applyPalette(); });
+document.querySelectorAll("#set-shell .swatch").forEach(s=>{
+  s.addEventListener("click",()=>{ prefs.shell=s.dataset.col; savePrefs(); applyShell(prefs.shell, prefs.button); syncSettingsForm(); });
+});
+document.getElementById("set-shellcustom").addEventListener("input",e=>{ prefs.shell=e.target.value; savePrefs(); applyShell(prefs.shell, prefs.button); syncSettingsForm(); });
+document.getElementById("set-btn").addEventListener("input",e=>{ prefs.button=e.target.value; savePrefs(); applyShell(prefs.shell, prefs.button); });
+document.getElementById("set-scan").addEventListener("input",e=>{ prefs.scan=+e.target.value; savePrefs(); applyScan(prefs.scan); });
+document.getElementById("set-chime").addEventListener("change",e=>{ prefs.chime=e.target.value; savePrefs(); });
+
+/* Keybinds UI */
+const BIND_LABELS = {
+  left:"Move left", right:"Move right", up:"Up/Hard drop", down:"Down/Soft drop",
+  a:"A / Rotate CW", b:"B / Rotate CCW",
+  start:"Start / Pause", select:"Select / Hold", pause:"Pause (in-game)",
+  rotateCW:"Rotate CW (game)", rotateCCW:"Rotate CCW (game)",
+  hardDrop:"Hard drop", softDrop:"Soft drop", hold:"Hold piece",
+};
+const PORTFOLIO_KEYS = ["left","right","up","down","a","b","start","select"];
+const GAME_KEYS = ["left","right","softDrop","hardDrop","rotateCW","rotateCCW","hold","pause"];
+function renderBinds(container, scope){
+  const keys = scope==="game"?GAME_KEYS:PORTFOLIO_KEYS;
+  container.innerHTML = "";
+  keys.forEach(k=>{
+    const row = document.createElement("div");
+    row.className = "row";
+    const cur = (binds[k]||[]).map(prettyKey).join(", ") || "—";
+    row.innerHTML = `<label>${BIND_LABELS[k]||k}</label><button class="bind-btn" data-bind="${k}">${cur}</button>`;
+    container.appendChild(row);
+  });
+  container.querySelectorAll(".bind-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      btn.classList.add("listening"); btn.textContent = "Press key…";
+      const handler = (e)=>{
+        e.preventDefault(); e.stopPropagation();
+        const kk = e.key;
+        binds[btn.dataset.bind] = [kk];
+        savePrefs();
+        window.removeEventListener("keydown", handler, true);
+        renderBinds(container, scope);
+      };
+      window.addEventListener("keydown", handler, true);
+    });
+  });
+}
+function prettyKey(k){
+  if(k===" ") return "Space";
+  if(k==="ArrowLeft") return "←"; if(k==="ArrowRight") return "→";
+  if(k==="ArrowUp") return "↑"; if(k==="ArrowDown") return "↓";
+  return k;
+}
+
+/* Game modal */
+function openGameModal(){
+  gameModal.classList.add("on");
+  document.getElementById("set-level").value = prefs.startLevel;
+  document.getElementById("gset-ghost").value = prefs.ghost;
+  document.getElementById("gset-mouse").value = prefs.mouse;
+  renderBinds(document.getElementById("gbindList"), "game");
+}
+function closeGameModal(){ gameModal.classList.remove("on"); if(state.inGame) tetris.setPaused(false); }
+document.getElementById("set-level").addEventListener("change",e=>{ prefs.startLevel=+e.target.value; savePrefs(); });
+document.getElementById("gset-ghost").addEventListener("change",e=>{ prefs.ghost=e.target.value; savePrefs(); });
+document.getElementById("gset-mouse").addEventListener("change",e=>{ prefs.mouse=e.target.value; savePrefs(); });
+document.getElementById("gset-resume").addEventListener("click", ()=>{ gameModal.classList.remove("on"); tetris.setPaused(false); });
+document.getElementById("gset-quit").addEventListener("click", ()=>{ gameModal.classList.remove("on"); exitGame(); });
+
+/* close modal on backdrop click */
+settingsModal.addEventListener("click", e=>{ if(e.target===settingsModal) closeSettings(); });
+gameModal.addEventListener("click", e=>{ if(e.target===gameModal){ gameModal.classList.remove("on"); tetris.setPaused(false);} });
+
+/* ==================== INIT ==================== */
+applyAllPrefs();
+boot();
+
+/* hide the egg hint after a while */
+setTimeout(()=>{ document.getElementById("eggHint").style.opacity="0.3"; }, 8000);
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+src/room/.build/
+src/room/tools/cache/
+node_modules/
+*.png
+!v1/**/*.png

@@ -1,0 +1,89 @@
+<title>Arahe's Living Room</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Abdur Raheem Imami builds robots, firmware and GPU inference engines. A pixel-rendered living room you can pick things up in.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500..700&family=Silkscreen&display=swap">
+<style>
+/* Layout: one full-bleed room, nothing on top of it but two small pixel buttons in the bottom-left corner. One committed night-room look. */
+:root{
+  --night:#0e0c13;
+  --panel:#16131d;
+  --line:#3b3250;
+  --cream:#f1e6cc;
+  --dim:#a197b3;
+  --mustard:#e9b04b;
+  --f-display:"Pixelify Sans","Silkscreen",ui-monospace,monospace;
+  --f-label:"Silkscreen",ui-monospace,monospace;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--night);color:var(--cream);font-family:var(--f-label);overflow:hidden;-webkit-font-smoothing:none;padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+:focus-visible{outline:2px dashed var(--mustard);outline-offset:3px}
+
+#stage{position:fixed;inset:0;overflow:hidden;background:var(--night)}
+#view,#marks{position:absolute;left:0;top:0;image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+#view{touch-action:none}
+#marks{pointer-events:none}
+#hot{position:absolute;inset:0;pointer-events:none}
+#hot a{position:absolute;left:0;top:0;pointer-events:auto;cursor:pointer;-webkit-user-drag:none;user-select:none;touch-action:none;-webkit-tap-highlight-color:transparent}
+#hot a:focus-visible{outline:2px dashed var(--mustard);outline-offset:2px}
+
+/* corner controls */
+#corner{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));display:flex;gap:10px;z-index:10}
+.pxbtn{width:36px;height:36px;display:grid;place-items:center;background:var(--panel);color:var(--cream);
+  box-shadow:0 -3px 0 0 var(--line),0 3px 0 0 var(--line),-3px 0 0 0 var(--line),3px 0 0 0 var(--line),5px 5px 0 0 rgba(0,0,0,.45);transition:transform .06s steps(2)}
+.pxbtn:hover,#info[aria-pressed="true"]{color:var(--mustard);box-shadow:0 -3px 0 0 var(--mustard),0 3px 0 0 var(--mustard),-3px 0 0 0 var(--mustard),3px 0 0 0 var(--mustard),5px 5px 0 0 rgba(0,0,0,.45)}
+.pxbtn:active{transform:translate(2px,2px)}
+.pxbtn svg{display:block;shape-rendering:crispEdges}
+#info .glyph{font-family:var(--f-display);font-weight:700;font-size:22px;line-height:1;transform:translateY(-1px)}
+#sound .x{display:none}
+#sound.off .waves{display:none}
+#sound.off .x{display:inline}
+
+/* keyboard list: invisible until it has focus */
+#keynav{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(max(16px,env(safe-area-inset-bottom,0px)) + 52px);display:flex;flex-direction:column;align-items:flex-start;gap:4px;z-index:11}
+#keynav button{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#keynav button:focus{position:static;width:auto;height:auto;clip:auto;overflow:visible;padding:6px 9px 5px;background:var(--panel);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;box-shadow:0 0 0 2px var(--mustard)}
+
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+#loader{position:fixed;inset:0;z-index:60;background:var(--night);display:grid;place-items:center;transition:opacity .5s steps(5)}
+#loader.done{opacity:0;pointer-events:none}
+#loader .l1{font-size:11px;letter-spacing:3px;color:var(--mustard);text-align:center}
+#loader .meter{width:160px;height:8px;margin:12px auto 0;background:var(--panel);box-shadow:0 0 0 2px var(--line);position:relative}
+#loader .meter i{position:absolute;inset:0 auto 0 0;width:0;background:var(--mustard);transition:width .2s steps(4)}
+#fallback{position:fixed;inset:0;display:grid;place-items:center;z-index:70;padding:24px}
+#fallback .box{max-width:420px;padding:18px 20px;background:var(--panel);font-size:12px;line-height:1.6}
+#fallback h2{font-family:var(--f-display);margin:0 0 8px;font-size:24px}
+#fallback a{color:var(--mustard)}
+@media (prefers-reduced-motion:reduce){ *{animation-duration:.01ms!important;transition-duration:.01ms!important} }
+</style>
+
+<div id="stage">
+  <canvas id="view" role="img" aria-label="A pixel-art living room at night or day depending on your clock. A coffee table holds a magazine, a coffee, a succulent, three Game Boy cartridges, a Game Boy and a phone. A TV shows the name Abdur Raheem Imami. Records hang on the right wall and a small robot sits on the console."></canvas>
+  <canvas id="marks" aria-hidden="true"></canvas>
+  <div id="hot"></div>
+</div>
+
+<h1 class="sr">Abdur Raheem Imami</h1>
+<p class="sr">Builds robots, firmware and GPU inference engines. Mechatronics and Automation at VIT Chennai.</p>
+<nav id="keynav" aria-label="Things in the room"></nav>
+<div id="status" class="sr" role="status" aria-live="polite"></div>
+
+<div id="corner">
+  <button class="pxbtn" id="back" hidden aria-label="Back inside">
+    <svg width="20" height="16" viewBox="0 0 10 8" aria-hidden="true" fill="currentColor"><rect x="0" y="3" width="1" height="2"/><rect x="1" y="2" width="1" height="4"/><rect x="2" y="1" width="1" height="2"/><rect x="2" y="5" width="1" height="2"/><rect x="3" y="0" width="1" height="2"/><rect x="3" y="6" width="1" height="2"/><rect x="1" y="3" width="8" height="2"/></svg>
+  </button>
+  <button class="pxbtn" id="info" aria-pressed="false" aria-label="Show everything you can interact with"><span class="glyph" aria-hidden="true">i</span></button>
+  <button class="pxbtn" id="sound" aria-pressed="true" aria-label="Sound on">
+    <svg width="20" height="16" viewBox="0 0 10 8" aria-hidden="true" fill="currentColor"><rect x="0" y="3" width="2" height="2"/><rect x="2" y="2" width="1" height="4"/><rect x="3" y="1" width="1" height="6"/><rect x="4" y="0" width="1" height="8"/>
+      <g class="waves"><rect x="6" y="3" width="1" height="2"/><rect x="7" y="1" width="1" height="1"/><rect x="8" y="2" width="1" height="4"/><rect x="7" y="6" width="1" height="1"/></g>
+      <g class="x"><rect x="6" y="2" width="1" height="1"/><rect x="7" y="3" width="1" height="2"/><rect x="8" y="2" width="1" height="1"/><rect x="6" y="5" width="1" height="1"/><rect x="8" y="5" width="1" height="1"/></g></svg>
+  </button>
+</div>
+
+<div id="loader"><div><div class="l1">ARAHE.ROOM</div><div class="meter"><i id="load-bar"></i></div></div></div>
